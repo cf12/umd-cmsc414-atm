@@ -6,7 +6,9 @@ else
   STACK_FLAGS = -fno-stack-protector -z execstack
 endif
 
-CFLAGS = ${STACK_FLAGS} -Wall -Iutil -Iatm -Ibank -Irouter -I.
+CFLAGS = ${STACK_FLAGS} \
+-I/usr/include/openssl -lcrypto \
+-Wall -Iutil -Iatm -Ibank -Irouter -I.
 
 all: bin bin/atm bin/bank bin/router
 
