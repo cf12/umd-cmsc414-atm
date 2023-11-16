@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 
 typedef struct _ATM
 {
