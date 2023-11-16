@@ -1,0 +1,13 @@
+{
+    "C_Cpp.default.includePath": [
+        "/opt/homebrew/opt/openssl@3.1/include/",
+        "./atm",
+        "./bank",
+        "./"
+    ],
+    "files.associations": {
+        "*.js": "javascriptreact",
+        "stdio.h": "c",
+        "atm.h": "c"
+    }
+}

@@ -12,23 +12,24 @@
 
 static const char prompt[] = "ATM: ";
 
+#define HANDLE_FILE_ERROR                                 \
+    {                                                     \
+        perror("Error opening bank initialization file"); \
+        return 64;                                        \
+    }
+
 int main(int argc, char** argv) {
+    EVP_PKEY* key;
     char user_input[1000];
 
     ATM* atm = atm_create();
     const char* filename = strcat(argv[1], ".bank");
 
-    FILE* keyFile = fopen(filename, "r");
-    if (!keyFile) {
-        perror("Error opening bank initialization file");
-        return 64;
-    }
+    FILE* key_file = fopen(filename, "r");
+    if (!key_file) HANDLE_FILE_ERROR;
 
-    RSA* key = PEM_read_RSAPrivateKey(keyFile, NULL, NULL, NULL);
-    if (!key) {
-        perror("Error opening bank initialization file");
-        return 64;
-    }
+    key = PEM_read_PrivateKey(key_file, NULL, NULL, NULL);
+    if (!key) HANDLE_FILE_ERROR;
 
     atm->key = key;
 
@@ -41,8 +42,8 @@ int main(int argc, char** argv) {
         fflush(stdout);
     }
 
-    fclose(keyFile);
-    RSA_free(atm->key);
+    fclose(key_file);
+    EVP_PKEY_free(atm->key);
     EVP_cleanup();
 
     return EXIT_SUCCESS;

@@ -1,10 +1,23 @@
+
 #include "bank.h"
 
+#include <regex.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "../ports.h"
+#define HANDLE_BANK_ERROR            \
+    {                                \
+        perror("bank error\n");      \
+        ERR_print_errors_fp(stderr); \
+        return -1;                   \
+    }
+;
+
+int starts_with(const char *a, const char *b) {
+    return !strncmp(a, b, strlen(b));
+}
 
 Bank *bank_create() {
     Bank *bank = (Bank *)malloc(sizeof(Bank));
@@ -41,73 +54,47 @@ void bank_free(Bank *bank) {
     }
 }
 
-ssize_t bank_send(Bank *bank, char *data, size_t data_len) {
-    RSA *key = bank->key;
+ssize_t bank_send(Bank *bank, unsigned char *data, size_t data_len) {
+    size_t out_len;
+    EVP_PKEY_CTX *ctx;
+    EVP_PKEY *key = bank->key;
 
-    int enc_len =
-        RSA_public_encrypt(data_len + 1, (unsigned char *)data,
-                           (unsigned char *)data, key, RSA_PKCS1_OAEP_PADDING);
-    if (enc_len == -1) {
-        perror("bank_send encryption error\n");
-        ERR_print_errors_fp(stderr);
-        return -1;
-    }
+    ctx = EVP_PKEY_CTX_new(key, NULL);
+    if (!ctx) HANDLE_BANK_ERROR;
+    if (EVP_PKEY_encrypt_init(ctx) <= 0) HANDLE_BANK_ERROR;
+    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
+        HANDLE_BANK_ERROR;
+    if (EVP_PKEY_encrypt(ctx, NULL, &out_len, data, data_len) <= 0)
+        HANDLE_BANK_ERROR;
+    if (EVP_PKEY_encrypt(ctx, data, &out_len, data, data_len) <= 0)
+        HANDLE_BANK_ERROR;
 
     // Returns the number of bytes sent; negative on error
-    return sendto(bank->sockfd, data, enc_len, 0,
+    return sendto(bank->sockfd, data, out_len, 0,
                   (struct sockaddr *)&bank->rtr_addr, sizeof(bank->rtr_addr));
 }
 
-ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
-    RSA *key = bank->key;
+ssize_t bank_recv(Bank *bank, unsigned char *data, size_t max_data_len) {
+    size_t out_len;
+    unsigned char *out, *in;
+    EVP_PKEY_CTX *ctx;
+    EVP_PKEY *key = bank->key;
 
     // Returns the number of bytes received; negative on error
     int data_len = recvfrom(bank->sockfd, data, max_data_len, 0, NULL, NULL);
     if (data_len < 0) return data_len;
 
-    // for (int i = 0; i < data_len; i++) printf("%02X ", (unsigned
-    // char)data[i]); printf("\n\n");
+    ctx = EVP_PKEY_CTX_new(key, NULL);
+    if (!ctx) HANDLE_BANK_ERROR;
+    if (EVP_PKEY_decrypt_init(ctx) <= 0) HANDLE_BANK_ERROR;
+    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
+        HANDLE_BANK_ERROR;
+    if (EVP_PKEY_decrypt(ctx, NULL, &out_len, data, data_len) <= 0)
+        HANDLE_BANK_ERROR;
+    if (EVP_PKEY_decrypt(ctx, data, &out_len, data, data_len) <= 0)
+        HANDLE_BANK_ERROR;
 
-    int msg_len =
-        RSA_private_decrypt(data_len, (unsigned char *)data,
-                            (unsigned char *)data, key, RSA_PKCS1_OAEP_PADDING);
-    if (msg_len == -1) {
-        perror("bank_recv decryption error\n");
-        ERR_print_errors_fp(stderr);
-        return -1;
-    }
-
-    // for (int i = 0; i < msg_len; i++) printf("%02X ", (unsigned
-    // char)data[i]);
-
-    return msg_len;
-}
-
-void bank_process_local_command(Bank *bank, char *command, size_t len) {
-    // init regex
-    int reti, matched, max_groups;  
-    regex_t create_user_regex, deposit_regex, balance_user_regex;
-    reti = regcomp(&create_user_regex, "^create-user [a-zA-Z]+ [0-9][0-9][0-9][0-9] [0-9]+$", REG_EXTENDED);
-    reti = regcomp(&deposit_regex, "^deposit [a-zA-Z]+ [0-9]+$", REG_EXTENDED);
-    reti = regcomp(&balance_user_regex, "^balance [a-zA-Z]+$", REG_EXTENDED);
-    
-    if (strstr(command, "create-user") == command) {
-      max_groups = 4; 
-      regmatch_t group_array[max_groups];
-      matched = !regexec(&create_user_regex, command, max_groups, group_array, 0);
-
-      if (matched) {
-        create_user_command(bank, command, max_groups, group_array);
-      } else {
-        printf("Usage:  %s", command);
-      }
-    } else if (strstr(command, "deposit") == command){
-      // TODO
-    } else if (strstr(command, "balance") == command){
-      // TODO
-    } else {
-      printf("Invalid command");
-    }
+    return out_len;
 }
 
 void create_user_command(Bank *bank, char *command, int max_groups, regmatch_t *group_array) {
@@ -133,6 +120,34 @@ void balance_command(Bank *bank, char *command, int max_groups, regmatch_t *grou
   // TODO
 }
 
+void bank_process_local_command(Bank *bank, char *command, size_t len) {
+    // init regex
+    int reti, matched, max_groups;  
+    regex_t create_user_regex, deposit_regex, balance_user_regex;
+    reti = regcomp(&create_user_regex, "^create-user [a-zA-Z]+ [0-9][0-9][0-9][0-9] [0-9]+$", REG_EXTENDED);
+    reti = regcomp(&deposit_regex, "^deposit [a-zA-Z]+ [0-9]+$", REG_EXTENDED);
+    reti = regcomp(&balance_user_regex, "^balance [a-zA-Z]+$", REG_EXTENDED);
+    
+    if (starts_with(command, "create-user")) {
+      max_groups = 4; 
+      regmatch_t group_array[max_groups];
+      matched = !regexec(&create_user_regex, command, max_groups, group_array, 0);
+
+      if (matched) {
+        create_user_command(bank, command, max_groups, group_array);
+      } else {
+        printf("Usage:  %s", command);
+      }
+    } else if (starts_with(command, "deposit")){
+      // TODO
+    } else if (starts_with(command, "balance")){
+      // TODO
+    } else {
+      printf("Invalid command");
+    }
+}
+
+
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     // TODO: Implement the bank side of the ATM-bank protocol
 
@@ -144,8 +159,8 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
     char sendline[10000];
     command[len] = 0;
-    sprintf(sendline, "Bank got: %s", command);
-    bank_send(bank, sendline, strlen(sendline));
+    sprintf(sendline, "Bank got: %s", (unsigned char *)command);
+    bank_send(bank, (unsigned char *)sendline, strlen(sendline));
     printf("Received the following:\n");
     fputs(command, stdout);
 }

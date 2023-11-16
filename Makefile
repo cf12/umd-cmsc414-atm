@@ -1,12 +1,15 @@
 CC = gcc
 
 ifeq ($(CC),clang)
-  STACK_FLAGS = -fno-stack-protector -Wl,-allow_stack_execute
+	STACK_FLAGS = -fno-stack-protector -Wl,-allow_stack_execute
 else
-  STACK_FLAGS = -fno-stack-protector -z execstack
+	STACK_FLAGS = -fno-stack-protector -z execstack
 endif
 
-CFLAGS = ${STACK_FLAGS} -Wall -Iutil -Iatm -Ibank -Irouter -I.
+CFLAGS = ${STACK_FLAGS} \
+	-I/opt/homebrew/opt/openssl/include \
+	-I/usr/include/openssl \
+	-lcrypto -Wall -Iutil -Iatm -Ibank -Irouter -I.
 
 all: bin bin/atm bin/bank bin/router
 
