@@ -16,6 +16,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <openssl/pem.h>
+#include <openssl/err.h>
 
 typedef struct _ATM
 {
@@ -26,6 +28,7 @@ typedef struct _ATM
 
     // Protocol state
     // TODO add more, as needed
+    RSA* key;
 } ATM;
 
 ATM* atm_create();
