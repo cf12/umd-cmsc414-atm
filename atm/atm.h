@@ -28,13 +28,13 @@ typedef struct _ATM
 
     // Protocol state
     // TODO add more, as needed
-    RSA* key;
+    EVP_PKEY* key;
 } ATM;
 
 ATM* atm_create();
 void atm_free(ATM *atm);
-ssize_t atm_send(ATM *atm, char *data, size_t data_len);
-ssize_t atm_recv(ATM *atm, char *data, size_t max_data_len);
+ssize_t atm_send(ATM *atm, unsigned char *data, size_t data_len);
+ssize_t atm_recv(ATM *atm, unsigned char *data, size_t max_data_len);
 void atm_process_command(ATM *atm, char *command);
 
 #endif

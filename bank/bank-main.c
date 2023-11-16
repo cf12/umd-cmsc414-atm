@@ -14,7 +14,14 @@
 
 static const char prompt[] = "BANK: ";
 
+#define HANDLE_FILE_ERROR                                 \
+    {                                                     \
+        perror("Error opening bank initialization file"); \
+        return 64;                                        \
+    }
+
 int main(int argc, char** argv) {
+    EVP_PKEY* key;
     int n;
     char sendline[1000];
     char recvline[1000];
@@ -22,17 +29,11 @@ int main(int argc, char** argv) {
     Bank* bank = bank_create();
     const char* filename = strcat(argv[1], ".bank");
 
-    FILE* keyFile = fopen(filename, "r");
-    if (!keyFile) {
-        perror("Error opening bank initialization file");
-        return 64;
-    }
+    FILE* key_file = fopen(filename, "r");
+    if (!key_file) HANDLE_FILE_ERROR;
 
-    RSA* key = PEM_read_RSAPrivateKey(keyFile, NULL, NULL, NULL);
-    if (!key) {
-        perror("Error opening bank initialization file");
-        return 64;
-    }
+    key = PEM_read_PrivateKey(key_file, NULL, NULL, NULL);
+    if (!key) HANDLE_FILE_ERROR;
 
     bank->key = key;
 
@@ -52,13 +53,13 @@ int main(int argc, char** argv) {
             printf("%s", prompt);
             fflush(stdout);
         } else if (FD_ISSET(bank->sockfd, &fds)) {
-            n = bank_recv(bank, recvline, 10000);
+            n = bank_recv(bank, (unsigned char*)recvline, 10000);
             bank_process_remote_command(bank, recvline, n);
         }
     }
 
-    fclose(keyFile);
-    RSA_free(bank->key);
+    fclose(key_file);
+    EVP_PKEY_free(bank->key);
     EVP_cleanup();
 
     return EXIT_SUCCESS;
