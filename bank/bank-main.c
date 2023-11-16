@@ -10,7 +10,7 @@
 #include <sys/select.h>
 
 #include "bank.h"
-#include "ports.h"
+#include "../ports.h"
 
 static const char prompt[] = "BANK: ";
 

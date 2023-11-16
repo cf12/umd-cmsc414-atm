@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "ports.h"
+#include "../ports.h"
 
 Bank *bank_create() {
     Bank *bank = (Bank *)malloc(sizeof(Bank));
@@ -84,7 +84,53 @@ ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
 }
 
 void bank_process_local_command(Bank *bank, char *command, size_t len) {
-    // TODO: Implement the bank's local commands
+    // init regex
+    int reti, matched, max_groups;  
+    regex_t create_user_regex, deposit_regex, balance_user_regex;
+    reti = regcomp(&create_user_regex, "^create-user [a-zA-Z]+ [0-9][0-9][0-9][0-9] [0-9]+$", REG_EXTENDED);
+    reti = regcomp(&deposit_regex, "^deposit [a-zA-Z]+ [0-9]+$", REG_EXTENDED);
+    reti = regcomp(&balance_user_regex, "^balance [a-zA-Z]+$", REG_EXTENDED);
+    
+    if (strstr(command, "create-user") == command) {
+      max_groups = 4; 
+      regmatch_t group_array[max_groups];
+      matched = !regexec(&create_user_regex, command, max_groups, group_array, 0);
+
+      if (matched) {
+        create_user_command(bank, command, max_groups, group_array);
+      } else {
+        printf("Usage:  %s", command);
+      }
+    } else if (strstr(command, "deposit") == command){
+      // TODO
+    } else if (strstr(command, "balance") == command){
+      // TODO
+    } else {
+      printf("Invalid command");
+    }
+}
+
+void create_user_command(Bank *bank, char *command, int max_groups, regmatch_t *group_array) {
+  int i; 
+  for (i = 0; i < max_groups; i++) {
+    if (group_array[i].rm_so == (size_t)-1)
+      break;  // No more groups
+
+    char sourceCopy[strlen(command) + 1];
+    strcpy(sourceCopy, command);
+    sourceCopy[group_array[i].rm_eo] = 0;
+    printf("Group %u: [%2u-%2u]: %s\n",
+            i, group_array[i].rm_so, group_array[i].rm_eo,
+            sourceCopy + group_array[i].rm_so);
+  }
+}
+
+void deposit_command(Bank *bank, char *command, int max_groups, regmatch_t *group_array) {
+  // TODO
+}
+
+void balance_command(Bank *bank, char *command, int max_groups, regmatch_t *group_array) {
+  // TODO
 }
 
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
