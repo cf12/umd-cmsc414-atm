@@ -20,8 +20,8 @@ bin:
 bin/atm : atm/atm-main.c atm/atm.c
 	${CC} ${DEPS} atm/atm.c atm/atm-main.c -o bin/atm ${CFLAGS}
 
-bin/bank : bank/bank-main.c bank/bank.c
-	${CC} ${DEPS} bank/bank.c bank/bank-main.c -o bin/bank ${CFLAGS}
+bin/bank : bank/bank-main.c bank/bank.c util/hash_table.c util/list.c
+	${CC} ${DEPS} bank/bank.c bank/bank-main.c util/hash_table.c util/list.c -o bin/bank ${CFLAGS}
 
 bin/router : router/router-main.c router/router.c
 	${CC} ${DEPS} router/router.c router/router-main.c -o bin/router ${CFLAGS}
@@ -32,3 +32,6 @@ test : util/list.c util/list_example.c util/hash_table.c util/hash_table_example
 
 clean:
 	cd bin && rm -f *
+
+clean-card:
+	find . -name \*.card -type f -delete

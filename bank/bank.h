@@ -23,6 +23,7 @@
 #include <openssl/err.h>
 #include <regex.h>
 #include <openssl/evp.h>
+#include "util/hash_table.h"
 
 typedef struct _Bank
 {
@@ -33,6 +34,10 @@ typedef struct _Bank
 
     // Protocol state
     // TODO add more, as needed
+
+    // HashTable
+    HashTable* hash_table; 
+
     EVP_PKEY* key;
 } Bank;
 

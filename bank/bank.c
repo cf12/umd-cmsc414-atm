@@ -6,7 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "../ports.h"
+#include "ports.h"
 #include "rsa/rsa.h"
 
 int starts_with(const char *a, const char *b) {
@@ -37,6 +37,10 @@ Bank *bank_create() {
 
     // Set up the protocol state
     // TODO set up more, as needed
+
+    // Set up Hashtable
+    HashTable *ht = hash_table_create(10);
+    bank->hash_table = ht; 
 
     return bank;
 }
@@ -76,7 +80,12 @@ char *match_group(char* input_string, regmatch_t *group_array, int i) {
   // extract match group i from input_string
   int start = group_array[i].rm_so;
   int end = group_array[i].rm_eo; 
+
   char *matched = malloc((end - start + 1) * sizeof(char));
+  if (matched == NULL) {
+    perror("Could not allocate string");
+    exit(1);
+  }
 
   strncpy(matched, input_string + start, end - start);
   matched[end] = 0;
@@ -86,12 +95,41 @@ char *match_group(char* input_string, regmatch_t *group_array, int i) {
 
 void create_user_command(Bank *bank, char *command, int max_groups,
                          regmatch_t *group_array) {
+    HashTable *ht = bank->hash_table;
+
     // extract match groups
     char *user_name = match_group(command, group_array, 1);
     char *pin = match_group(command, group_array, 2);
     char *balance = match_group(command, group_array, 3);
+    
+    // if user_name is valid, create a new user
+    if (hash_table_find(ht, user_name) == NULL) {
+      FILE *fp;
+      char filename[] = "";
+      strcat(filename, user_name); 
+      strcat(filename, ".card");
 
-    printf("%s, %s, %s\n", user_name, pin, balance);
+      fp = fopen(filename, "w");
+
+      // File was successfully created
+      if (fp != NULL) {
+        // TODO add info to card 
+        printf("Created user %s\n", user_name);
+        fclose(fp);
+
+        hash_table_add(ht, user_name, balance);
+        return;
+      }
+
+      printf("Error creating card file for user %s\n", user_name);
+    } else {
+      printf("Error:  user %s already exists\n", user_name);
+    }
+
+    // if any step was invalid, rollback everything
+    free(user_name);
+    free(pin); 
+    free(balance);
 }
 
 void deposit_command(Bank *bank, char *command, int max_groups,
