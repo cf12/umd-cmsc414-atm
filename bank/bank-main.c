@@ -9,31 +9,28 @@
 #include <string.h>
 #include <sys/select.h>
 
-#include "bank.h"
 #include "../ports.h"
+#include "bank.h"
+#include "rsa/rsa.h"
 
 static const char prompt[] = "BANK: ";
 
-#define HANDLE_FILE_ERROR                                 \
-    {                                                     \
-        perror("Error opening bank initialization file"); \
-        return 64;                                        \
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        printf("Usage: bank <init-fname>\n");
+        return -1;
     }
 
-int main(int argc, char** argv) {
-    EVP_PKEY* key;
     int n;
-    char sendline[1000];
-    char recvline[1000];
+    char sendline[10000];
+    char recvline[10000];
 
     Bank* bank = bank_create();
-    const char* filename = strcat(argv[1], ".bank");
-
-    FILE* key_file = fopen(filename, "r");
-    if (!key_file) HANDLE_FILE_ERROR;
-
-    key = PEM_read_PrivateKey(key_file, NULL, NULL, NULL);
-    if (!key) HANDLE_FILE_ERROR;
+    EVP_PKEY* key = rsa_readkey(strcat(argv[1], ".bank"));
+    if (!key) {
+        perror("Error opening bank initialization file");
+        return 64;
+    }
 
     bank->key = key;
 
@@ -53,14 +50,10 @@ int main(int argc, char** argv) {
             printf("%s", prompt);
             fflush(stdout);
         } else if (FD_ISSET(bank->sockfd, &fds)) {
-            n = bank_recv(bank, (unsigned char*)recvline, 10000);
+            n = bank_recv(bank, recvline, 10000);
             bank_process_remote_command(bank, recvline, n);
         }
     }
-
-    fclose(key_file);
-    EVP_PKEY_free(bank->key);
-    EVP_cleanup();
 
     return EXIT_SUCCESS;
 }

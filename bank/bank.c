@@ -7,13 +7,7 @@
 #include <unistd.h>
 
 #include "../ports.h"
-#define HANDLE_BANK_ERROR            \
-    {                                \
-        perror("bank error\n");      \
-        ERR_print_errors_fp(stderr); \
-        return -1;                   \
-    }
-;
+#include "rsa/rsa.h"
 
 int starts_with(const char *a, const char *b) {
     return !strncmp(a, b, strlen(b));
@@ -50,103 +44,82 @@ Bank *bank_create() {
 void bank_free(Bank *bank) {
     if (bank != NULL) {
         close(bank->sockfd);
+        EVP_PKEY_free(bank->key);
+        EVP_cleanup();
         free(bank);
     }
 }
 
-ssize_t bank_send(Bank *bank, unsigned char *data, size_t data_len) {
-    size_t out_len;
-    EVP_PKEY_CTX *ctx;
-    EVP_PKEY *key = bank->key;
-
-    ctx = EVP_PKEY_CTX_new(key, NULL);
-    if (!ctx) HANDLE_BANK_ERROR;
-    if (EVP_PKEY_encrypt_init(ctx) <= 0) HANDLE_BANK_ERROR;
-    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
-        HANDLE_BANK_ERROR;
-    if (EVP_PKEY_encrypt(ctx, NULL, &out_len, data, data_len) <= 0)
-        HANDLE_BANK_ERROR;
-    if (EVP_PKEY_encrypt(ctx, data, &out_len, data, data_len) <= 0)
-        HANDLE_BANK_ERROR;
+ssize_t bank_send(Bank *bank, char *data, size_t data_len) {
+    ssize_t out_len = rsa_encrypt(bank->key, (unsigned char *)data, data_len);
 
     // Returns the number of bytes sent; negative on error
     return sendto(bank->sockfd, data, out_len, 0,
                   (struct sockaddr *)&bank->rtr_addr, sizeof(bank->rtr_addr));
 }
 
-ssize_t bank_recv(Bank *bank, unsigned char *data, size_t max_data_len) {
-    size_t out_len;
-    unsigned char *out, *in;
-    EVP_PKEY_CTX *ctx;
-    EVP_PKEY *key = bank->key;
-
+ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
     // Returns the number of bytes received; negative on error
     int data_len = recvfrom(bank->sockfd, data, max_data_len, 0, NULL, NULL);
     if (data_len < 0) return data_len;
 
-    ctx = EVP_PKEY_CTX_new(key, NULL);
-    if (!ctx) HANDLE_BANK_ERROR;
-    if (EVP_PKEY_decrypt_init(ctx) <= 0) HANDLE_BANK_ERROR;
-    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
-        HANDLE_BANK_ERROR;
-    if (EVP_PKEY_decrypt(ctx, NULL, &out_len, data, data_len) <= 0)
-        HANDLE_BANK_ERROR;
-    if (EVP_PKEY_decrypt(ctx, data, &out_len, data, data_len) <= 0)
-        HANDLE_BANK_ERROR;
-
+    ssize_t out_len = rsa_decrypt(bank->key, (unsigned char *)data, data_len);
     return out_len;
 }
 
-void create_user_command(Bank *bank, char *command, int max_groups, regmatch_t *group_array) {
-  int i; 
-  for (i = 0; i < max_groups; i++) {
-    if (group_array[i].rm_so == (size_t)-1)
-      break;  // No more groups
+void create_user_command(Bank *bank, char *command, int max_groups,
+                         regmatch_t *group_array) {
+    int i;
+    for (i = 0; i < max_groups; i++) {
+        if (group_array[i].rm_so == (size_t)-1) break;  // No more groups
 
-    char sourceCopy[strlen(command) + 1];
-    strcpy(sourceCopy, command);
-    sourceCopy[group_array[i].rm_eo] = 0;
-    printf("Group %u: [%2u-%2u]: %s\n",
-            i, group_array[i].rm_so, group_array[i].rm_eo,
-            sourceCopy + group_array[i].rm_so);
-  }
+        char sourceCopy[strlen(command) + 1];
+        strcpy(sourceCopy, command);
+        sourceCopy[group_array[i].rm_eo] = 0;
+        printf("Group %u: [%2u-%2u]: %s\n", i, group_array[i].rm_so,
+               group_array[i].rm_eo, sourceCopy + group_array[i].rm_so);
+    }
 }
 
-void deposit_command(Bank *bank, char *command, int max_groups, regmatch_t *group_array) {
-  // TODO
+void deposit_command(Bank *bank, char *command, int max_groups,
+                     regmatch_t *group_array) {
+    // TODO
 }
 
-void balance_command(Bank *bank, char *command, int max_groups, regmatch_t *group_array) {
-  // TODO
+void balance_command(Bank *bank, char *command, int max_groups,
+                     regmatch_t *group_array) {
+    // TODO
 }
 
 void bank_process_local_command(Bank *bank, char *command, size_t len) {
     // init regex
-    int reti, matched, max_groups;  
+    int reti, matched, max_groups;
     regex_t create_user_regex, deposit_regex, balance_user_regex;
-    reti = regcomp(&create_user_regex, "^create-user [a-zA-Z]+ [0-9][0-9][0-9][0-9] [0-9]+$", REG_EXTENDED);
+    reti = regcomp(&create_user_regex,
+                   "^create-user [a-zA-Z]+ [0-9][0-9][0-9][0-9] [0-9]+$",
+                   REG_EXTENDED);
     reti = regcomp(&deposit_regex, "^deposit [a-zA-Z]+ [0-9]+$", REG_EXTENDED);
     reti = regcomp(&balance_user_regex, "^balance [a-zA-Z]+$", REG_EXTENDED);
-    
-    if (starts_with(command, "create-user")) {
-      max_groups = 4; 
-      regmatch_t group_array[max_groups];
-      matched = !regexec(&create_user_regex, command, max_groups, group_array, 0);
 
-      if (matched) {
-        create_user_command(bank, command, max_groups, group_array);
-      } else {
-        printf("Usage:  %s", command);
-      }
-    } else if (starts_with(command, "deposit")){
-      // TODO
-    } else if (starts_with(command, "balance")){
-      // TODO
+    if (starts_with(command, "create-user")) {
+        max_groups = 4;
+        regmatch_t group_array[max_groups];
+        matched =
+            !regexec(&create_user_regex, command, max_groups, group_array, 0);
+
+        if (matched) {
+            create_user_command(bank, command, max_groups, group_array);
+        } else {
+            printf("Usage:  %s", command);
+        }
+    } else if (starts_with(command, "deposit")) {
+        // TODO
+    } else if (starts_with(command, "balance")) {
+        // TODO
     } else {
-      printf("Invalid command");
+        printf("Invalid command");
     }
 }
-
 
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     // TODO: Implement the bank side of the ATM-bank protocol
@@ -159,8 +132,8 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
     char sendline[10000];
     command[len] = 0;
-    sprintf(sendline, "Bank got: %s", (unsigned char *)command);
-    bank_send(bank, (unsigned char *)sendline, strlen(sendline));
+    sprintf(sendline, "Bank got: %s", command);
+    bank_send(bank, sendline, strlen(sendline));
     printf("Received the following:\n");
     fputs(command, stdout);
 }
