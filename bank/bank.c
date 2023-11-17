@@ -67,18 +67,31 @@ ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
     return out_len;
 }
 
+char *match_group(char* input_string, regmatch_t *group_array, int i) {
+  // index given is not valid
+  if (i < 0 || group_array[i].rm_so == (size_t)-1) {
+    return NULL;
+  }
+
+  // extract match group i from input_string
+  int start = group_array[i].rm_so;
+  int end = group_array[i].rm_eo; 
+  char *matched = malloc((end - start + 1) * sizeof(char));
+
+  strncpy(matched, input_string + start, end - start);
+  matched[end] = 0;
+
+  return matched;
+}
+
 void create_user_command(Bank *bank, char *command, int max_groups,
                          regmatch_t *group_array) {
-    int i;
-    for (i = 0; i < max_groups; i++) {
-        if (group_array[i].rm_so == (size_t)-1) break;  // No more groups
+    // extract match groups
+    char *user_name = match_group(command, group_array, 1);
+    char *pin = match_group(command, group_array, 2);
+    char *balance = match_group(command, group_array, 3);
 
-        char sourceCopy[strlen(command) + 1];
-        strcpy(sourceCopy, command);
-        sourceCopy[group_array[i].rm_eo] = 0;
-        printf("Group %u: [%2u-%2u]: %s\n", i, group_array[i].rm_so,
-               group_array[i].rm_eo, sourceCopy + group_array[i].rm_so);
-    }
+    printf("%s, %s, %s\n", user_name, pin, balance);
 }
 
 void deposit_command(Bank *bank, char *command, int max_groups,
@@ -93,13 +106,13 @@ void balance_command(Bank *bank, char *command, int max_groups,
 
 void bank_process_local_command(Bank *bank, char *command, size_t len) {
     // init regex
-    int reti, matched, max_groups;
+    int matched, max_groups;
     regex_t create_user_regex, deposit_regex, balance_user_regex;
-    reti = regcomp(&create_user_regex,
-                   "^create-user [a-zA-Z]+ [0-9][0-9][0-9][0-9] [0-9]+$",
+    regcomp(&create_user_regex,
+                   "^create-user ([a-zA-Z]+) ([0-9][0-9][0-9][0-9]) ([0-9]+)\n$",
                    REG_EXTENDED);
-    reti = regcomp(&deposit_regex, "^deposit [a-zA-Z]+ [0-9]+$", REG_EXTENDED);
-    reti = regcomp(&balance_user_regex, "^balance [a-zA-Z]+$", REG_EXTENDED);
+    regcomp(&deposit_regex, "^deposit ([a-zA-Z]+) ([0-9]+)\n$", REG_EXTENDED);
+    regcomp(&balance_user_regex, "^balance ([a-zA-Z]+)\n$", REG_EXTENDED);
 
     if (starts_with(command, "create-user")) {
         max_groups = 4;
@@ -110,14 +123,14 @@ void bank_process_local_command(Bank *bank, char *command, size_t len) {
         if (matched) {
             create_user_command(bank, command, max_groups, group_array);
         } else {
-            printf("Usage:  %s", command);
+            printf("Usage:  create-user <user-name> <pin> <balance>\n");
         }
     } else if (starts_with(command, "deposit")) {
         // TODO
     } else if (starts_with(command, "balance")) {
         // TODO
     } else {
-        printf("Invalid command");
+        printf("Invalid command\n");
     }
 }
 
