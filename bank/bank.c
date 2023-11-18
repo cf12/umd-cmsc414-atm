@@ -1,12 +1,12 @@
 
 #include "bank.h"
 
+#include <math.h>
 #include <regex.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <math.h>
-#include <regex.h>
+
 #include "../ports.h"
 #include "../rsa/rsa.h"
 
@@ -41,16 +41,9 @@ Bank *bank_create() {
     // Set up the protocol state
     // TODO set up more, as needed
 
-    // Set up regex
-    regcomp(&create_user_regex,
-                   "^create-user ([a-zA-Z]+) ([0-9][0-9][0-9][0-9]) ([0-9]+)\n$",
-                   REG_EXTENDED);
-    regcomp(&deposit_regex, "^deposit ([a-zA-Z]+) ([0-9]+)\n$", REG_EXTENDED);
-    regcomp(&balance_user_regex, "^balance ([a-zA-Z]+)\n$", REG_EXTENDED);
-
     // Set up Hashtable
     HashTable *ht = hash_table_create(10);
-    bank->hash_table = ht; 
+    bank->hash_table = ht;
 
     return bank;
 }
@@ -81,143 +74,115 @@ ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
     return out_len;
 }
 
-char *match_group(char* input_string, regmatch_t *group_array, int i) {
-  // index given is not valid
-  if (i < 0 || group_array[i].rm_so == (size_t)-1) {
-    return NULL;
-  }
-
-  // extract match group i from input_string
-  int start = group_array[i].rm_so;
-  int end = group_array[i].rm_eo; 
-
-  char *matched = malloc((end - start + 1) * sizeof(char));
-  if (matched == NULL) {
-    perror("Could not allocate string");
-    exit(1);
-  }
-
-  strncpy(matched, input_string + start, end - start);
-  // for (int i = 0; i < )
-  matched[end - start] = 0;
-
-  return matched;
-}
-
-void create_user_command(Bank *bank, char *command, int max_groups,
-                         regmatch_t *group_array) {
+void process_create_user_command(Bank *bank, char *command) {
     HashTable *ht = bank->hash_table;
+    char *user_name = calloc(1, 251 * sizeof(*user_name));
+    int *pin = calloc(1, sizeof(*pin));
+    int *balance = calloc(1, sizeof(*balance));
+    int num_groups = 3;
+    int num_matched =
+        sscanf(command, "create-user %250s %4d %d", user_name, pin, balance);
 
-    // extract match groups
-    char *user_name = match_group(command, group_array, 1);
-    char *pin = match_group(command, group_array, 2);
-    char *balance = match_group(command, group_array, 3);
-    
-    // if user_name is valid, create a new user
-    if (hash_table_find(ht, user_name) == NULL) {
-      FILE *fp;
-      char filename[] = "";
-      strcat(filename, user_name); 
-      strcat(filename, ".card");
-
-      fp = fopen(filename, "w");
-
-      // File was successfully created
-      if (fp != NULL) {
-        // TODO add info to card 
-        printf("Created user %s\n", user_name);
-        fclose(fp);
-
-        hash_table_add(ht, user_name, balance);
+    // check input valid
+    if (num_matched != num_groups || *balance < 0) {
+        free(user_name);
+        free(pin); 
+        free(balance);
+        printf("Usage:  create-user <user-name> <pin> <balance>\n");
         return;
-      }
-
-      printf("Error creating card file for user %s\n", user_name);
-    } else {
-      printf("Error:  user %s already exists\n", user_name);
     }
 
-    // if any step was invalid, rollback everything
-    free(user_name);
-    free(pin); 
-    free(balance);
+    if (hash_table_find(ht, user_name) == NULL) {
+        FILE *fp;
+        char filename[] = "";
+        strcat(filename, user_name);
+        strcat(filename, ".card");
+
+        fp = fopen(filename, "w");
+
+        // File was successfully created
+        if (fp != NULL) {
+            // TODO add info to card
+            printf("Created user %s\n", user_name);
+            fclose(fp);
+
+            hash_table_add(ht, user_name, balance);
+            return;
+        }
+
+        printf("Error creating card file for user %s\n", user_name);
+    } else {
+        printf("Error:  user %s already exists\n", user_name);
+    }
 }
 
-void deposit_command(Bank *bank, char *command, int max_groups,
-                     regmatch_t *group_array) {
+void process_deposit_command(Bank *bank, char *command) {
     HashTable *ht = bank->hash_table;
+    char *user_name = calloc(1, 251 * sizeof(*user_name));
+    int *amt = calloc(1, sizeof(*amt));
+    int num_groups = 2;
+    int num_matched = sscanf(command, "deposit %250s %d", user_name, amt);
 
-    // extract match groups
-    char *user_name = match_group(command, group_array, 1);
-    char *amt = match_group(command, group_array, 2);
+    // check input valid
+    if (num_matched != num_groups || *amt < 0) {
+        free(user_name);
+        free(amt);
+        printf("Usage:  deposit <user-name> <amt>\n");
+        return;
+    }
 
     // if user_name exists
     if (hash_table_find(ht, user_name) != NULL) {
-      char *balance = hash_table_find(ht, user_name);
-      printf("initial: %s, deposit: %s\n", balance, amt);
+        int *new_balance = malloc(sizeof(*new_balance));
+        int *balance = hash_table_find(ht, user_name);
+        printf("initial: %d, deposit: %d\n", *balance, *amt);
 
-      int new_balance = atoi(balance) + atoi(amt);
-      // TODO: check for int overflow using SIGFPE maybe
-      if (new_balance > 0) {
-        int digits = (new_balance == 0) ? 1 : floor(log10 (new_balance)) + 1;
+        *new_balance = *balance + *amt;
+        if (new_balance > 0) {
+            printf("initial: %d, amt: %d, updated: %d\n", *balance, *amt,
+                   *new_balance);
 
-        char *nb = malloc((digits + 1) * sizeof(char));
-        if (nb == NULL) {
-          perror("Could not allocate string");
-          exit(1);
+            hash_table_del(ht, user_name);
+            hash_table_add(ht, user_name, new_balance);
+
+            printf("$%d added to %s's account\n", *amt, user_name);
+            return;
         }
-        sprintf(nb,"%d", new_balance);
-        printf("initial: %s, deposit: %s, updated: %d = %s\n", balance, amt, new_balance, nb);
 
-        hash_table_del(ht, user_name);
-        hash_table_add(ht, user_name, nb);
+        printf("Too rich for this program\n");
+    } else {
+        printf("No such user\n");
+    }
+}
 
-        printf("$%s added to %s's account\n", amt, user_name);
+void process_balance_command(Bank *bank, char *command) {
+    HashTable *ht = bank->hash_table;
+    char *user_name = calloc(1, 251 * sizeof(*user_name));
+    int num_groups = 1;
+    int num_matched = sscanf(command, "balance %250s", user_name);
+
+    // check input valid
+    if (num_matched != num_groups) {
+        free(user_name);
+        printf("Usage:  balance <user-name>\n");
         return;
-      }
+    }
 
-      printf("Too rich for this program\n");
+    int *balance;
+    if ((balance = hash_table_find(ht, user_name)) != NULL) {
+      printf("$%d\n", *balance);
     } else {
       printf("No such user\n");
     }
-
-    // if any step was invalid, rollback everything
-    free(user_name);
-    free(amt); 
-}
-
-void balance_command(Bank *bank, char *command, int max_groups,
-                     regmatch_t *group_array) {
-    // TODO
 }
 
 void bank_process_local_command(Bank *bank, char *command, size_t len) {
-    int matched, max_groups;
-
     if (starts_with(command, "create-user")) {
-        max_groups = 4;
-        regmatch_t group_array[max_groups];
-        matched =
-            !regexec(&create_user_regex, command, max_groups, group_array, 0);
-
-        if (matched) {
-            create_user_command(bank, command, max_groups, group_array);
-        } else {
-            printf("Usage:  create-user <user-name> <pin> <balance>\n");
-        }
+        process_create_user_command(bank, command);
     } else if (starts_with(command, "deposit")) {
-        max_groups = 3;
-        regmatch_t group_array[max_groups];
-        matched =
-            !regexec(&deposit_regex, command, max_groups, group_array, 0);
-
-        if (matched) {
-            deposit_command(bank, command, max_groups, group_array);
-        } else {
-            printf("Usage:  deposit <user-name> <amt>\n");
-        }
+        process_deposit_command(bank, command);
     } else if (starts_with(command, "balance")) {
-        // TODO
+        process_balance_command(bank, command);
     } else {
         printf("Invalid command\n");
     }
