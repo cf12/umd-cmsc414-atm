@@ -42,8 +42,10 @@ Bank *bank_create() {
     // TODO set up more, as needed
 
     // Set up Hashtable
-    HashTable *ht = hash_table_create(10);
-    bank->hash_table = ht;
+    HashTable *pt = hash_table_create(10);
+    HashTable *bt = hash_table_create(10);
+    bank->pin_table = pt;
+    bank->balance_table = bt;
 
     return bank;
 }
@@ -53,6 +55,8 @@ void bank_free(Bank *bank) {
         close(bank->sockfd);
         EVP_PKEY_free(bank->key);
         EVP_cleanup();
+        hash_table_free(bank->pin_table);
+        hash_table_free(bank->balance_table);
         free(bank);
     }
 }
@@ -75,7 +79,7 @@ ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
 }
 
 void process_create_user_command(Bank *bank, char *command) {
-    HashTable *ht = bank->hash_table;
+    HashTable *bt = bank->balance_table, *pt = bank->pin_table;
     char *user_name = calloc(1, 251 * sizeof(*user_name));
     int *pin = calloc(1, sizeof(*pin));
     int *balance = calloc(1, sizeof(*balance));
@@ -92,7 +96,7 @@ void process_create_user_command(Bank *bank, char *command) {
         return;
     }
 
-    if (hash_table_find(ht, user_name) == NULL) {
+    if (hash_table_find(bt, user_name) == NULL) {
         FILE *fp;
         char filename[] = "";
         strcat(filename, user_name);
@@ -106,7 +110,8 @@ void process_create_user_command(Bank *bank, char *command) {
             printf("Created user %s\n", user_name);
             fclose(fp);
 
-            hash_table_add(ht, user_name, balance);
+            hash_table_add(pt, user_name, pin);
+            hash_table_add(bt, user_name, balance);
             return;
         }
 
@@ -117,7 +122,7 @@ void process_create_user_command(Bank *bank, char *command) {
 }
 
 void process_deposit_command(Bank *bank, char *command) {
-    HashTable *ht = bank->hash_table;
+    HashTable *bt = bank->balance_table;
     char *user_name = calloc(1, 251 * sizeof(*user_name));
     int *amt = calloc(1, sizeof(*amt));
     int num_groups = 2;
@@ -132,9 +137,9 @@ void process_deposit_command(Bank *bank, char *command) {
     }
 
     // if user_name exists
-    if (hash_table_find(ht, user_name) != NULL) {
+    if (hash_table_find(bt, user_name) != NULL) {
         int *new_balance = malloc(sizeof(*new_balance));
-        int *balance = hash_table_find(ht, user_name);
+        int *balance = hash_table_find(bt, user_name);
         printf("initial: %d, deposit: %d\n", *balance, *amt);
 
         *new_balance = *balance + *amt;
@@ -142,8 +147,8 @@ void process_deposit_command(Bank *bank, char *command) {
             printf("initial: %d, amt: %d, updated: %d\n", *balance, *amt,
                    *new_balance);
 
-            hash_table_del(ht, user_name);
-            hash_table_add(ht, user_name, new_balance);
+            hash_table_del(bt, user_name);
+            hash_table_add(bt, user_name, new_balance);
 
             printf("$%d added to %s's account\n", *amt, user_name);
             return;
@@ -156,7 +161,7 @@ void process_deposit_command(Bank *bank, char *command) {
 }
 
 void process_balance_command(Bank *bank, char *command) {
-    HashTable *ht = bank->hash_table;
+    HashTable *bt = bank->balance_table;
     char *user_name = calloc(1, 251 * sizeof(*user_name));
     int num_groups = 1;
     int num_matched = sscanf(command, "balance %250s", user_name);
@@ -169,7 +174,7 @@ void process_balance_command(Bank *bank, char *command) {
     }
 
     int *balance;
-    if ((balance = hash_table_find(ht, user_name)) != NULL) {
+    if ((balance = hash_table_find(bt, user_name)) != NULL) {
       printf("$%d\n", *balance);
     } else {
       printf("No such user\n");

@@ -35,7 +35,8 @@ typedef struct _Bank
     // TODO add more, as needed
 
     // HashTable
-    HashTable* hash_table; 
+    HashTable *pin_table;
+    HashTable *balance_table; 
 
     EVP_PKEY* key;
 } Bank;
