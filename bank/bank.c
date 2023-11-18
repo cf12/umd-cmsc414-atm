@@ -98,7 +98,8 @@ char *match_group(char* input_string, regmatch_t *group_array, int i) {
   }
 
   strncpy(matched, input_string + start, end - start);
-  matched[end] = 0;
+  // for (int i = 0; i < )
+  matched[end - start] = 0;
 
   return matched;
 }
@@ -191,7 +192,6 @@ void balance_command(Bank *bank, char *command, int max_groups,
 }
 
 void bank_process_local_command(Bank *bank, char *command, size_t len) {
-    // init regex
     int matched, max_groups;
 
     if (starts_with(command, "create-user")) {
