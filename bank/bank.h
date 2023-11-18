@@ -19,10 +19,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
-#include <openssl/pem.h>
-#include <openssl/err.h>
-#include <openssl/evp.h>
+
+#include "../ports.h"
 #include "../util/hash_table.h"
+#include "../util/rsa.h"
+#include "../util/packet.h"
 
 typedef struct _Bank
 {
@@ -37,6 +38,7 @@ typedef struct _Bank
     // HashTable
     HashTable *pin_table;
     HashTable *balance_table; 
+    HashTable *card_table; 
 
     EVP_PKEY* key;
 } Bank;

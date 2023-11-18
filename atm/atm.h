@@ -16,7 +16,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
-#include <openssl/evp.h>
+
+#include "../ports.h"
+#include "../util/rsa.h"
+#include "../util/packet.h"
 
 typedef struct _ATM
 {

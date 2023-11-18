@@ -4,9 +4,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "../ports.h"
-#include "../rsa/rsa.h"
-
 int starts_with(const char *a, const char *b) {
     return !strncmp(a, b, strlen(b));
 }
@@ -65,15 +62,6 @@ ssize_t atm_recv(ATM *atm, char *data, size_t max_data_len) {
     return out_len;
 }
 
-typedef enum { BeginSession } Command;
-typedef struct {
-    Command cmd;
-    char username[250 + 1];
-    char pin[4 + 1];
-    char card[16 + 1];
-    uint32_t nonce;
-} packet_t;
-
 void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     if (argc != 2) {
         printf("Usage: begin-session <user-name>\n");
@@ -107,22 +95,15 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
         .nonce = 1
     };
 
-    strcpy(p.username, username);
-    strcpy(p.pin, pin);
-    strcpy(p.card, "aaaaaaaaaaaaaaaa");
+    memcpy(p.username, username, sizeof(*username));
+    memcpy(p.pin, pin, sizeof(*pin));
+    memcpy(p.card, "aaaa", 4);
 
     printf("%d %250s %4s %16s %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
 
-    char sendline[sizeof(p)];
     char recvline[10000];
 
-    memcpy(sendline, &p, sizeof(p));
-
-    for (int i = 0; i < sizeof(sendline); i++)
-      printf("%02X ", sendline[i]);
-    printf("\n");
-
-    atm_send(atm, sendline, sizeof(sendline));
+    atm_send(atm, (char*) &p, sizeof(p));
     int n = atm_recv(atm, recvline, 10000);
     recvline[n] = 0;
     printf("$%s\n", recvline);

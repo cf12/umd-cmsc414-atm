@@ -7,11 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "../ports.h"
-#include "../rsa/rsa.h"
-
-regex_t create_user_regex, deposit_regex, balance_user_regex;
-
 int starts_with(const char *a, const char *b) {
     return !strncmp(a, b, strlen(b));
 }
@@ -44,8 +39,10 @@ Bank *bank_create() {
     // Set up Hashtable
     HashTable *pt = hash_table_create(10);
     HashTable *bt = hash_table_create(10);
+    HashTable *ct = hash_table_create(10);
     bank->pin_table = pt;
     bank->balance_table = bt;
+    bank->card_table = ct;
 
     return bank;
 }
@@ -57,6 +54,7 @@ void bank_free(Bank *bank) {
         EVP_cleanup();
         hash_table_free(bank->pin_table);
         hash_table_free(bank->balance_table);
+        hash_table_free(bank->card_table);
         free(bank);
     }
 }
@@ -79,10 +77,11 @@ ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
 }
 
 void process_create_user_command(Bank *bank, char *command) {
-    HashTable *bt = bank->balance_table, *pt = bank->pin_table;
+    HashTable *bt = bank->balance_table, *pt = bank->pin_table, *ct = bank->card_table;
     char *user_name = calloc(1, 251 * sizeof(*user_name));
     int *pin = calloc(1, sizeof(*pin));
     int *balance = calloc(1, sizeof(*balance));
+    char *card = calloc(32, sizeof(char));
     int num_groups = 3;
     int num_matched =
         sscanf(command, "create-user %250s %4d %d", user_name, pin, balance);
@@ -98,7 +97,7 @@ void process_create_user_command(Bank *bank, char *command) {
 
     if (hash_table_find(bt, user_name) == NULL) {
         FILE *fp;
-        char filename[] = "";
+        char filename[256] = "";
         strcat(filename, user_name);
         strcat(filename, ".card");
 
@@ -106,12 +105,16 @@ void process_create_user_command(Bank *bank, char *command) {
 
         // File was successfully created
         if (fp != NULL) {
-            // TODO add info to card
+            for (int i = 0; i < 32; i++)
+                sprintf(&card[i], "%x", rand() % 16);
+            fputs(card, fp);
+
             printf("Created user %s\n", user_name);
             fclose(fp);
 
             hash_table_add(pt, user_name, pin);
             hash_table_add(bt, user_name, balance);
+            hash_table_add(ct, user_name, card);
             return;
         }
 
@@ -193,14 +196,6 @@ void bank_process_local_command(Bank *bank, char *command, size_t len) {
     }
 }
 
-typedef enum { BeginSession } Command;
-typedef struct {
-    Command cmd;
-    char username[250];
-    char pin[4];
-    char card[16];
-    uint32_t nonce;
-} packet_t;
 
 
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
@@ -209,11 +204,6 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     for (int i = 0; i < len; i++)
       printf("%02X ", command[i]);
     printf("\n");
-
-    HashTable *ht = bank->hash_table;
-    // size_t argc = 0;
-    // char **argv = malloc(sizeof(char *));
-    // char *splitter;
 
     packet_t* p = (packet_t*) command;
 

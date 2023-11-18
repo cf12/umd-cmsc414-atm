@@ -11,7 +11,7 @@
 
 #include "../ports.h"
 #include "bank.h"
-#include "../rsa/rsa.h"
+#include "../util/rsa.h"
 
 static const char prompt[] = "BANK: ";
 
