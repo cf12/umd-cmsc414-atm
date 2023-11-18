@@ -7,6 +7,10 @@
 #include "../ports.h"
 #include "../rsa/rsa.h"
 
+int starts_with(const char *a, const char *b) {
+    return !strncmp(a, b, strlen(b));
+}
+
 ATM *atm_create() {
     ATM *atm = (ATM *)malloc(sizeof(ATM));
     if (atm == NULL) {
@@ -61,6 +65,71 @@ ssize_t atm_recv(ATM *atm, char *data, size_t max_data_len) {
     return out_len;
 }
 
+typedef enum { BeginSession } Command;
+typedef struct {
+    Command cmd;
+    char username[250 + 1];
+    char pin[4 + 1];
+    char card[16 + 1];
+    uint32_t nonce;
+} packet_t;
+
+void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
+    if (argc != 2) {
+        printf("Usage: begin-session <user-name>\n");
+        return;
+    }
+
+    char *username = argv[1];
+
+    // fucking shit boy math
+    char card_filename[255 + 1] = "";
+    strncpy(card_filename, username, 250);
+    strcat(card_filename, ".card");
+    
+
+    FILE *card_file = fopen(card_filename, "r");
+    if (!card_file) {
+        printf("Unable to access %s's card\n", username);
+        return;
+    }
+
+    printf("PIN? ");
+
+    char pin[4];
+    if (scanf("%4s", &pin) != 1) {
+        printf("Not authorized\n");
+        return;
+    }
+
+    packet_t p = {
+        .cmd = BeginSession,
+        .nonce = 1
+    };
+
+    strcpy(p.username, username);
+    strcpy(p.pin, pin);
+    strcpy(p.card, "aaaaaaaaaaaaaaaa");
+
+    printf("%d %250s %4s %16s %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
+
+    char sendline[sizeof(p)];
+    char recvline[10000];
+
+    memcpy(sendline, &p, sizeof(p));
+
+    for (int i = 0; i < sizeof(sendline); i++)
+      printf("%02X ", sendline[i]);
+    printf("\n");
+
+    atm_send(atm, sendline, sizeof(sendline));
+    int n = atm_recv(atm, recvline, 10000);
+    recvline[n] = 0;
+    printf("$%s\n", recvline);
+
+    return;
+}
+
 void atm_process_command(ATM *atm, char *command) {
     // TODO: Implement the ATM's side of the ATM-bank protocol
 
@@ -71,10 +140,45 @@ void atm_process_command(ATM *atm, char *command) {
      */
 
     char recvline[10000];
-    int n;
+    char sendline[10000];
 
-    atm_send(atm, command, strlen(command));
-    n = atm_recv(atm, recvline, 10000);
-    recvline[n] = 0;
-    fputs(recvline, stdout);
+    size_t argc = 0;
+    char **argv = malloc(sizeof(char *));
+    char *splitter;
+
+    // TODO: null byte ovbeflow?
+    command[strlen(command) - 1] = '\0';
+
+    splitter = strtok(command, " ");
+    while (splitter != NULL) {
+        char *tmp = malloc(strlen(splitter) + 1);
+        strcpy(tmp, splitter);
+        argv[argc++] = tmp;
+        splitter = strtok(NULL, " ");
+    }
+
+    char *cmd = argv[0];
+    if (strcmp(cmd, "begin-session") == 0) {
+        process_begin_session_command(atm, argc, argv);
+    } else if (strcmp(cmd, "withdraw") == 0) {
+        if (argc != 2) {
+            printf("Usage: withdraw <amt>\n");
+        } else {
+        }
+    } else if (strcmp(cmd, "balance") == 0) {
+        if (argc != 1) {
+            printf("Usage: balance\n");
+        } else {
+            strcpy(sendline, "0 brian 0000 card1 balance");
+            atm_send(atm, sendline, strlen(sendline));
+            int n = atm_recv(atm, recvline, 10000);
+            recvline[n] = 0;
+            printf("$%s\n", recvline);
+        }
+    } else {
+        printf("Invalid command\n");
+    }
+
+    for (int i = 0; i < argc; i++) free(argv[i]);
+    free(argv);
 }

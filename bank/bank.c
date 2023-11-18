@@ -188,19 +188,77 @@ void bank_process_local_command(Bank *bank, char *command, size_t len) {
     }
 }
 
+typedef enum { BeginSession } Command;
+typedef struct {
+    Command cmd;
+    char username[250];
+    char pin[4];
+    char card[16];
+    uint32_t nonce;
+} packet_t;
+
+
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     // TODO: Implement the bank side of the ATM-bank protocol
 
-    /*
-     * The following is a toy example that simply receives a
-     * string from the ATM, prepends "Bank got: " and echoes
-     * it back to the ATM before printing it to stdout.
-     */
+    for (int i = 0; i < len; i++)
+      printf("%02X ", command[i]);
+    printf("\n");
 
-    char sendline[10000];
-    command[len] = 0;
-    sprintf(sendline, "Bank got: %s", command);
-    bank_send(bank, sendline, strlen(sendline));
-    printf("Received the following:\n");
-    fputs(command, stdout);
+    HashTable *ht = bank->hash_table;
+    // size_t argc = 0;
+    // char **argv = malloc(sizeof(char *));
+    // char *splitter;
+
+    packet_t* p = (packet_t*) command;
+
+    printf("%d %s %s %s %d\n", p->cmd, p->username, p->pin, p->card, p->nonce);
+
+
+
+    // // TODO: null byte ovbeflow?
+    // command[len] = 0;
+
+    // splitter = strtok(command, " ");
+    // while (splitter != NULL) {
+    //     char *tmp = malloc(strlen(splitter) + 1);
+    //     strcpy(tmp, splitter);
+    //     argv[argc++] = tmp;
+    //     splitter = strtok(NULL, " ");
+    // }
+
+
+    // const int bound = 4;
+
+    // unsigned int nonce = atoi(argv[0]);
+    // char *user_name = argv[1];
+    // char *pin = argv[2];
+    // char *card = argv[3];
+    // char *cmd = argv[bound];
+
+    // for (int i = 0; i < argc; i++)
+    //   printf("[%d]: %s\n", i, argv[i]);
+
+
+    // char sendline[10000];
+    // if (strcmp(cmd, "login") == 0) {
+    //   if (hash_table_find(ht, user_name) != NULL) {
+
+    //   } else {
+    //     sprintf(sendline, "No such user", command);
+    //   }
+    // } else if (strcmp(cmd, "balance") == 0) {
+    //   int *balance;
+    //   if ((balance = hash_table_find(ht, user_name)) != NULL) {
+    //     sprintf(sendline, "%d", *balance);
+    //   } 
+    // } else {
+    //     printf("comm error\n");
+    // }
+
+    // bank_send(bank, sendline, strlen(sendline));
+
+    // for (int i = 0; i < argc; i++)
+    //     free(argv[i]);
+    // // free(argv);
 }

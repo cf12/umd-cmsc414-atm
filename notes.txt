@@ -1,0 +1,4 @@
+nonce w/ every transmission
+- vulnerable to overflow attack, so the nonce loops back LMFAO
+
+- strcats are vuln to stack overflow

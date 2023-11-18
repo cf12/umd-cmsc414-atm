@@ -8,6 +8,12 @@
     "files.associations": {
         "*.js": "javascriptreact",
         "stdio.h": "c",
-        "atm.h": "c"
+        "atm.h": "c",
+        "evp.h": "c",
+        "in.h": "c",
+        "unistd.h": "c",
+        "ports.h": "c",
+        "stdlib.h": "c",
+        "rsa.h": "c"
     }
 }
