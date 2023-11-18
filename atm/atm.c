@@ -4,8 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "ports.h"
-#include "rsa/rsa.h"
+#include "../ports.h"
+#include "../rsa/rsa.h"
 
 ATM *atm_create() {
     ATM *atm = (ATM *)malloc(sizeof(ATM));

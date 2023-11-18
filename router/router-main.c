@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "router.h"
-#include "ports.h"
+#include "../ports.h"
 
 int main(int argc, char**argv)
 {

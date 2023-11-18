@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "atm.h"
-#include "rsa/rsa.h"
+#include "../rsa/rsa.h"
 
 static const char prompt[] = "ATM: ";
 
