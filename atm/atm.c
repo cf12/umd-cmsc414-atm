@@ -82,24 +82,29 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
         return;
     }
 
+    char card[32];
+    fgets(card, 32, card_file);
+
     printf("PIN? ");
 
-    char pin[4];
-    if (scanf("%4s", &pin) != 1) {
+    unsigned int pin;
+    if (scanf("%4u", &pin) != 1) {
         printf("Not authorized\n");
         return;
     }
 
     packet_t p = {
         .cmd = BeginSession,
+        .username = {0},
+        .card = {0},
+        .pin = pin,
         .nonce = 1
     };
 
-    memcpy(p.username, username, sizeof(*username));
-    memcpy(p.pin, pin, sizeof(*pin));
-    memcpy(p.card, "aaaa", 4);
+    memcpy(p.username, username, 250);
+    memcpy(p.card, card, sizeof(*card));
 
-    printf("%d %250s %4s %16s %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
+    printf("%d %250s %4u %16s %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
 
     char recvline[10000];
 

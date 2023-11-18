@@ -9,9 +9,7 @@
 #include <string.h>
 #include <sys/select.h>
 
-#include "../ports.h"
 #include "bank.h"
-#include "../util/rsa.h"
 
 static const char prompt[] = "BANK: ";
 
