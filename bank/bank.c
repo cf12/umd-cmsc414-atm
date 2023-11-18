@@ -5,9 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
+#include <regex.h>
+#include "../ports.h"
+#include "../rsa/rsa.h"
 
-#include "ports.h"
-#include "rsa/rsa.h"
+regex_t create_user_regex, deposit_regex, balance_user_regex;
 
 int starts_with(const char *a, const char *b) {
     return !strncmp(a, b, strlen(b));
@@ -37,6 +40,13 @@ Bank *bank_create() {
 
     // Set up the protocol state
     // TODO set up more, as needed
+
+    // Set up regex
+    regcomp(&create_user_regex,
+                   "^create-user ([a-zA-Z]+) ([0-9][0-9][0-9][0-9]) ([0-9]+)\n$",
+                   REG_EXTENDED);
+    regcomp(&deposit_regex, "^deposit ([a-zA-Z]+) ([0-9]+)\n$", REG_EXTENDED);
+    regcomp(&balance_user_regex, "^balance ([a-zA-Z]+)\n$", REG_EXTENDED);
 
     // Set up Hashtable
     HashTable *ht = hash_table_create(10);
@@ -134,7 +144,45 @@ void create_user_command(Bank *bank, char *command, int max_groups,
 
 void deposit_command(Bank *bank, char *command, int max_groups,
                      regmatch_t *group_array) {
-    // TODO
+    HashTable *ht = bank->hash_table;
+
+    // extract match groups
+    char *user_name = match_group(command, group_array, 1);
+    char *amt = match_group(command, group_array, 2);
+
+    // if user_name exists
+    if (hash_table_find(ht, user_name) != NULL) {
+      char *balance = hash_table_find(ht, user_name);
+      printf("initial: %s, deposit: %s\n", balance, amt);
+
+      int new_balance = atoi(balance) + atoi(amt);
+      // TODO: check for int overflow using SIGFPE maybe
+      if (new_balance > 0) {
+        int digits = (new_balance == 0) ? 1 : floor(log10 (new_balance)) + 1;
+
+        char *nb = malloc((digits + 1) * sizeof(char));
+        if (nb == NULL) {
+          perror("Could not allocate string");
+          exit(1);
+        }
+        sprintf(nb,"%d", new_balance);
+        printf("initial: %s, deposit: %s, updated: %d = %s\n", balance, amt, new_balance, nb);
+
+        hash_table_del(ht, user_name);
+        hash_table_add(ht, user_name, nb);
+
+        printf("$%s added to %s's account\n", amt, user_name);
+        return;
+      }
+
+      printf("Too rich for this program\n");
+    } else {
+      printf("No such user\n");
+    }
+
+    // if any step was invalid, rollback everything
+    free(user_name);
+    free(amt); 
 }
 
 void balance_command(Bank *bank, char *command, int max_groups,
@@ -145,12 +193,6 @@ void balance_command(Bank *bank, char *command, int max_groups,
 void bank_process_local_command(Bank *bank, char *command, size_t len) {
     // init regex
     int matched, max_groups;
-    regex_t create_user_regex, deposit_regex, balance_user_regex;
-    regcomp(&create_user_regex,
-                   "^create-user ([a-zA-Z]+) ([0-9][0-9][0-9][0-9]) ([0-9]+)\n$",
-                   REG_EXTENDED);
-    regcomp(&deposit_regex, "^deposit ([a-zA-Z]+) ([0-9]+)\n$", REG_EXTENDED);
-    regcomp(&balance_user_regex, "^balance ([a-zA-Z]+)\n$", REG_EXTENDED);
 
     if (starts_with(command, "create-user")) {
         max_groups = 4;
@@ -164,7 +206,16 @@ void bank_process_local_command(Bank *bank, char *command, size_t len) {
             printf("Usage:  create-user <user-name> <pin> <balance>\n");
         }
     } else if (starts_with(command, "deposit")) {
-        // TODO
+        max_groups = 3;
+        regmatch_t group_array[max_groups];
+        matched =
+            !regexec(&deposit_regex, command, max_groups, group_array, 0);
+
+        if (matched) {
+            deposit_command(bank, command, max_groups, group_array);
+        } else {
+            printf("Usage:  deposit <user-name> <amt>\n");
+        }
     } else if (starts_with(command, "balance")) {
         // TODO
     } else {

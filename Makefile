@@ -10,7 +10,8 @@ endif
 CFLAGS = ${STACK_FLAGS} \
 	-I/opt/homebrew/opt/openssl/include \
 	-I/usr/include/openssl \
-	-lcrypto -lssl -Wall -Iutil -Iatm -Ibank -Irouter -Irsa -I.
+	-lcrypto -lssl -Wall -Iutil -Iatm -Ibank -Irouter -Irsa -I \
+	-ftrapv.
 
 all: bin bin/atm bin/bank bin/router
 
@@ -21,7 +22,7 @@ bin/atm : atm/atm-main.c atm/atm.c
 	${CC} ${DEPS} atm/atm.c atm/atm-main.c -o bin/atm ${CFLAGS}
 
 bin/bank : bank/bank-main.c bank/bank.c util/hash_table.c util/list.c
-	${CC} ${DEPS} bank/bank.c bank/bank-main.c util/hash_table.c util/list.c -o bin/bank ${CFLAGS}
+	${CC} ${DEPS} bank/bank.c bank/bank-main.c util/hash_table.c util/list.c -o bin/bank ${CFLAGS} -lm
 
 bin/router : router/router-main.c router/router.c
 	${CC} ${DEPS} router/router.c router/router-main.c -o bin/router ${CFLAGS}

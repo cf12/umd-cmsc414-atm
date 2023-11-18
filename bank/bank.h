@@ -21,9 +21,8 @@
 #include <stdio.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
-#include <regex.h>
 #include <openssl/evp.h>
-#include "util/hash_table.h"
+#include "../util/hash_table.h"
 
 typedef struct _Bank
 {
