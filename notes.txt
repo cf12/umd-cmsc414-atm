@@ -1,4 +1,5 @@
 nonce w/ every transmission
 - vulnerable to overflow attack, so the nonce loops back LMFAO
+- can just cut off comms right before nonce == INT_MAX
 
-- strcats are vuln to stack overflow
+strcats are vuln to stack overflow
