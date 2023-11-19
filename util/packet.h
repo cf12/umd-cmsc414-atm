@@ -4,8 +4,8 @@
 typedef enum { BeginSession } Command;
 typedef struct {
     Command cmd;
-    char username[250];
-    char card[32];
+    char username[251];
+    unsigned int card;
     unsigned int pin;
     unsigned int nonce;
 } packet_t;

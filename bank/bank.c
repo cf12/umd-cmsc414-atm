@@ -77,11 +77,12 @@ ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
 }
 
 void process_create_user_command(Bank *bank, char *command) {
-    HashTable *bt = bank->balance_table, *pt = bank->pin_table, *ct = bank->card_table;
+    HashTable *bt = bank->balance_table, *pt = bank->pin_table,
+              *ct = bank->card_table;
     char *user_name = calloc(1, 251 * sizeof(*user_name));
     int *pin = calloc(1, sizeof(*pin));
     int *balance = calloc(1, sizeof(*balance));
-    char *card = calloc(32, sizeof(char));
+    int *card = calloc(1, sizeof(*card));
     int num_groups = 3;
     int num_matched =
         sscanf(command, "create-user %250s %4d %d", user_name, pin, balance);
@@ -89,7 +90,7 @@ void process_create_user_command(Bank *bank, char *command) {
     // check input valid
     if (num_matched != num_groups || *balance < 0) {
         free(user_name);
-        free(pin); 
+        free(pin);
         free(balance);
         printf("Usage:  create-user <user-name> <pin> <balance>\n");
         return;
@@ -105,9 +106,9 @@ void process_create_user_command(Bank *bank, char *command) {
 
         // File was successfully created
         if (fp != NULL) {
-            for (int i = 0; i < 32; i++)
-                sprintf(&card[i], "%x", rand() % 16);
-            fputs(card, fp);
+            // TODO: prevent collisions
+            *card = rand();
+            fprintf(fp, "%d", *card);
 
             printf("Created user %s\n", user_name);
             fclose(fp);
@@ -178,9 +179,9 @@ void process_balance_command(Bank *bank, char *command) {
 
     int *balance;
     if ((balance = hash_table_find(bt, user_name)) != NULL) {
-      printf("$%d\n", *balance);
+        printf("$%d\n", *balance);
     } else {
-      printf("No such user\n");
+        printf("No such user\n");
     }
 }
 
@@ -196,20 +197,30 @@ void bank_process_local_command(Bank *bank, char *command, size_t len) {
     }
 }
 
-
-
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     // TODO: Implement the bank side of the ATM-bank protocol
+    HashTable *bt = bank->balance_table, *pt = bank->pin_table,
+              *ct = bank->card_table;
 
-    for (int i = 0; i < len; i++)
-      printf("%02X ", command[i]);
+    for (int i = 0; i < len; i++) printf("%02X ", command[i]);
     printf("\n");
 
-    packet_t* p = (packet_t*) command;
+    packet_t *p = (packet_t *)command;
 
-    printf("%d %s %s %s %d\n", p->cmd, p->username, p->pin, p->card, p->nonce);
+    switch (p->cmd) {
+        case BeginSession:
+            char *username = p->username;
+            unsigned int bank_pin = hash_table_find(pt, username);
+            unsigned int bank_card = hash_table_find(ct, username);
+            unsigned int bank_balance = hash_table_find(bt, username);
 
+            if 
+            break;
+        default:
+            break;
+    }
 
+    printf("%d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card, p->nonce);
 
     // // TODO: null byte ovbeflow?
     // command[len] = 0;
@@ -222,7 +233,6 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     //     splitter = strtok(NULL, " ");
     // }
 
-
     // const int bound = 4;
 
     // unsigned int nonce = atoi(argv[0]);
@@ -233,7 +243,6 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
     // for (int i = 0; i < argc; i++)
     //   printf("[%d]: %s\n", i, argv[i]);
-
 
     // char sendline[10000];
     // if (strcmp(cmd, "login") == 0) {
@@ -246,7 +255,7 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     //   int *balance;
     //   if ((balance = hash_table_find(ht, user_name)) != NULL) {
     //     sprintf(sendline, "%d", *balance);
-    //   } 
+    //   }
     // } else {
     //     printf("comm error\n");
     // }

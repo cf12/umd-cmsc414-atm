@@ -82,8 +82,8 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
         return;
     }
 
-    char card[32];
-    fgets(card, 32, card_file);
+    unsigned int card;
+    fscanf(card_file, "%d", &card);
 
     printf("PIN? ");
 
@@ -96,15 +96,18 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     packet_t p = {
         .cmd = BeginSession,
         .username = {0},
-        .card = {0},
+        .card = card,
         .pin = pin,
         .nonce = 1
     };
 
     memcpy(p.username, username, 250);
-    memcpy(p.card, card, sizeof(*card));
 
-    printf("%d %250s %4u %16s %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
+    printf("%d %s %4u %u %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
+
+    for (int i = 0; i < sizeof(p); i++)
+      printf("%02X ", ((char*) &p)[i]);
+    printf("\n");
 
     char recvline[10000];
 
