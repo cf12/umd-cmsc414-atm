@@ -74,6 +74,9 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     if (argc != 2) {
         printf("Usage: begin-session <user-name>\n");
         return;
+    } else if (atm->username) {
+        printf("A user is already logged in\n");
+        return;
     }
 
     char *username = argv[1];
@@ -138,6 +141,49 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     return;
 }
 
+void process_withdraw_command(ATM *atm, size_t argc, char **argv) {
+    char recvline[10000];
+
+    // TODO: check amt
+    if (argc != 2) {
+        printf("Usage: withdraw <amt>\n");
+        return;
+    } else if (!atm->username) {
+        printf("No user logged in\n");
+        return;
+    }
+
+    packet_t p = {.cmd = Withdraw,
+                  .username = {0},
+                  .card = atm->card,
+                  .pin = atm->pin,
+                  .nonce = atm->nonce,
+                  .amt = atoi(argv[2])};
+    memcpy(p.username, atm->username, 250);
+
+    atm_send(atm, (char *)&p, sizeof(p));
+    int n = atm_recv(atm, recvline, 10000);
+    recvline[n] = 0;
+    printf("%s\n", recvline);
+}
+
+void process_balance_command(ATM *atm, size_t argc, char **argv) {
+    char recvline[10000];
+
+    if (argc != 1) {
+        printf("Usage: balance\n");
+        return;
+    }
+
+    // TODO: balance logic
+
+    // strcpy(sendline, "0 brian 0000 card1 balance");
+    // atm_send(atm, sendline, strlen(sendline));
+    int n = atm_recv(atm, recvline, 10000);
+    recvline[n] = 0;
+    printf("$%s\n", recvline);
+}
+
 void atm_process_command(ATM *atm, char *command) {
     // TODO: Implement the ATM's side of the ATM-bank protocol
 
@@ -146,9 +192,6 @@ void atm_process_command(ATM *atm, char *command) {
      * user's command to the bank, receives a message from the
      * bank, and then prints it to stdout.
      */
-
-    char recvline[10000];
-    char sendline[10000];
 
     size_t argc = 0;
     char **argv = malloc(sizeof(char *));
@@ -166,26 +209,14 @@ void atm_process_command(ATM *atm, char *command) {
     }
 
     char *cmd = argv[0];
-    if (strcmp(cmd, "begin-session") == 0) {
+    if (strcmp(cmd, "begin-session") == 0)
         process_begin_session_command(atm, argc, argv);
-    } else if (strcmp(cmd, "withdraw") == 0) {
-        if (argc != 2) {
-            printf("Usage: withdraw <amt>\n");
-        } else {
-        }
-    } else if (strcmp(cmd, "balance") == 0) {
-        if (argc != 1) {
-            printf("Usage: balance\n");
-        } else {
-            strcpy(sendline, "0 brian 0000 card1 balance");
-            atm_send(atm, sendline, strlen(sendline));
-            int n = atm_recv(atm, recvline, 10000);
-            recvline[n] = 0;
-            printf("$%s\n", recvline);
-        }
-    } else {
+    else if (strcmp(cmd, "withdraw") == 0)
+        process_withdraw_command(atm, argc, argv);
+    else if (strcmp(cmd, "balance") == 0)
+        process_balance_command(atm, argc, argv);
+    else
         printf("Invalid command\n");
-    }
 
     atm->nonce += 1;
 

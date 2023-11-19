@@ -35,14 +35,15 @@ typedef struct _Bank {
     // Protocol state
     // TODO add more, as needed
 
+
     // HashTable
     HashTable *pin_table;
     HashTable *balance_table;
     HashTable *card_table;
-    HashTable *nonce_table;
 
     List *users;
 
+    int nonce;
     EVP_PKEY *key;
 } Bank;
 

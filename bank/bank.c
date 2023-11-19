@@ -40,12 +40,12 @@ Bank *bank_create() {
     HashTable *pt = hash_table_create(10);
     HashTable *bt = hash_table_create(10);
     HashTable *ct = hash_table_create(10);
-    HashTable *nt = hash_table_create(10);
+
+    bank->nonce = 0;
 
     bank->pin_table = pt;
     bank->balance_table = bt;
     bank->card_table = ct;
-    bank->nonce_table = nt;
 
     List *cu = list_create();
     bank->users = cu;
@@ -62,7 +62,6 @@ void bank_free(Bank *bank) {
         hash_table_free(bank->pin_table);
         hash_table_free(bank->balance_table);
         hash_table_free(bank->card_table);
-        hash_table_free(bank->nonce_table);
 
         list_free(bank->users);
 
@@ -211,7 +210,7 @@ void bank_process_local_command(Bank *bank, char *command, size_t len) {
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     // TODO: Implement the bank side of the ATM-bank protocol
     HashTable *bt = bank->balance_table, *pt = bank->pin_table,
-              *ct = bank->card_table, *nt = bank->nonce_table;
+              *ct = bank->card_table;
     List *users = bank->users;
     char sendline[10000];
 
@@ -219,21 +218,15 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     // printf("\n");
 
     packet_t *p = (packet_t *)command;
-    // printf("%d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card, p->nonce);
 
     // TODO: free these sometime somewhere
     int *user_pin = hash_table_find(pt, p->username);
     int *user_card = hash_table_find(ct, p->username);
     int *user_balance = hash_table_find(bt, p->username);
-    int *user_nonce = hash_table_find(nt, p->username);
 
-
-    if (!user_nonce) {
-        user_nonce = calloc(1, sizeof(*user_nonce));
-        hash_table_add(nt, p->username, user_nonce);
-    }
-
-    printf("USER DETAILS:\n%u\n%u\n%u\n%u\n", *user_pin, *user_card, *user_balance, *user_nonce);
+    printf("[packet]: %d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card,
+           p->nonce);
+    printf("[user]: %d %d $%d", *user_pin, *user_card, *user_balance);
 
     switch (p->cmd) {
         case CheckSession:
@@ -251,7 +244,7 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
             break;
         case BeginSession:
             if (p->pin != *user_pin || p->card != *user_card ||
-                p->nonce != *user_nonce) {
+                p->nonce != bank->nonce) {
                 strcpy(sendline, "Not authorized");
                 bank_send(bank, sendline, strlen(sendline));
             } else {
@@ -260,14 +253,28 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
             break;
         case Withdraw:
-
+            if (p->pin != *user_pin || p->card != *user_card ||
+                p->nonce != bank->nonce) {
+                strcpy(sendline, "Not authorized");
+                bank_send(bank, sendline, strlen(sendline));
+            } else if (user_balance == NULL) {
+                strcpy(sendline, "No user logged in");
+                bank_send(bank, sendline, strlen(sendline));
+            } else if (*user_balance < p->amt) {
+                strcpy(sendline, "Insufficient funds");
+                bank_send(bank, sendline, strlen(sendline));
+            } else {
+                *user_balance -= p->amt;
+                sprintf(sendline, "$%d dispensed", p->amt);
+                bank_send(bank, sendline, strlen(sendline));
+            }
             break;
         default:
             break;
     }
 
     // increment nonce
-    *user_nonce += 1;
+    bank->nonce += 1;
 
     // // TODO: null byte ovbeflow?
     // command[len] = 0;
