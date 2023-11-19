@@ -226,7 +226,7 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
     printf("[packet]: %d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card,
            p->nonce);
-    printf("[user]: %d %d $%d", *user_pin, *user_card, *user_balance);
+    printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
 
     switch (p->cmd) {
         case CheckSession:

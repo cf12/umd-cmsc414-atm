@@ -143,9 +143,10 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
 
 void process_withdraw_command(ATM *atm, size_t argc, char **argv) {
     char recvline[10000];
+    int amt = 0;
 
     // TODO: check amt
-    if (argc != 2) {
+    if (argc != 2 || (sscanf(argv[2], "%d", &amt) != 1)) {
         printf("Usage: withdraw <amt>\n");
         return;
     } else if (!atm->username) {
@@ -158,7 +159,7 @@ void process_withdraw_command(ATM *atm, size_t argc, char **argv) {
                   .card = atm->card,
                   .pin = atm->pin,
                   .nonce = atm->nonce,
-                  .amt = atoi(argv[2])};
+                  .amt = amt};
     memcpy(p.username, atm->username, 250);
 
     atm_send(atm, (char *)&p, sizeof(p));
