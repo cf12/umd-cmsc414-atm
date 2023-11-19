@@ -96,8 +96,11 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
 
     printf("PIN? ");
 
+    char user_input[10000];
     int pin;
-    if (scanf("%4d ", &pin) != 1) {
+
+    fgets(user_input, 10000, stdin);
+    if (sscanf(user_input, "%4u ", &pin) != 1) {
         printf("Not authorized\n");
         return;
     }

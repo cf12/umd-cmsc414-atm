@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
     while (fgets(user_input, 10000, stdin) != NULL) {
         atm_process_command(atm, user_input);
         if (atm->username)
-            printf("ATM: (%s): ", atm->username);
+            printf("ATM (%s): ", atm->username);
         else
             printf("ATM: ");
         fflush(stdout);
