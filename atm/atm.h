@@ -13,16 +13,15 @@
 #define __ATM_H__
 
 #include <arpa/inet.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <sys/socket.h>
 
 #include "../ports.h"
-#include "../util/rsa.h"
 #include "../util/packet.h"
+#include "../util/rsa.h"
 
-typedef struct _ATM
-{
+typedef struct _ATM {
     // Networking state
     int sockfd;
     struct sockaddr_in rtr_addr;
@@ -30,10 +29,16 @@ typedef struct _ATM
 
     // Protocol state
     // TODO add more, as needed
-    EVP_PKEY* key;
+    EVP_PKEY *key;
+
+    char *username;
+    int card;
+    int pin;
+
+    int nonce;
 } ATM;
 
-ATM* atm_create();
+ATM *atm_create();
 void atm_free(ATM *atm);
 ssize_t atm_send(ATM *atm, char *data, size_t data_len);
 ssize_t atm_recv(ATM *atm, char *data, size_t max_data_len);

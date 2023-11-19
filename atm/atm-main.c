@@ -8,10 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "atm.h"
 #include "../util/rsa.h"
-
-static const char prompt[] = "ATM: ";
+#include "atm.h"
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -30,12 +28,15 @@ int main(int argc, char** argv) {
 
     atm->key = key;
 
-    printf("%s", prompt);
+    printf("ATM: ");
     fflush(stdout);
 
     while (fgets(user_input, 10000, stdin) != NULL) {
         atm_process_command(atm, user_input);
-        printf("%s", prompt);
+        if (atm->username)
+            printf("ATM: (%s): ", atm->username);
+        else
+            printf("ATM: ");
         fflush(stdout);
     }
 

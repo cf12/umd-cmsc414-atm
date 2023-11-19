@@ -1,13 +1,22 @@
 #ifndef __PACKET_H__
 #define __PACKET_H__
 
-typedef enum { BeginSession } Command;
+typedef enum { 
+    CheckSession,
+    BeginSession,
+    EndSession,
+    Withdraw,
+    Balance,
+ } Command;
 typedef struct {
     Command cmd;
     char username[251];
-    unsigned int card;
-    unsigned int pin;
-    unsigned int nonce;
+    int card;
+    int pin;
+    int nonce;
+
+    // Withdraw
+    int amt;
 } packet_t;
 
 #endif

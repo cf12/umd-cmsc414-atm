@@ -31,6 +31,11 @@ ATM *atm_create() {
 
     // Set up the protocol state
     // TODO set up more, as needed
+    atm->username = NULL;
+    atm->card = 0;
+    atm->pin = 0;
+
+    atm->nonce = 0;
 
     return atm;
 }
@@ -40,6 +45,9 @@ void atm_free(ATM *atm) {
         close(atm->sockfd);
         EVP_PKEY_free(atm->key);
         EVP_cleanup();
+
+        if (atm->username) free(atm->username);
+
         free(atm);
     }
 }
@@ -74,7 +82,6 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     char card_filename[255 + 1] = "";
     strncpy(card_filename, username, 250);
     strcat(card_filename, ".card");
-    
 
     FILE *card_file = fopen(card_filename, "r");
     if (!card_file) {
@@ -82,39 +89,48 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
         return;
     }
 
-    unsigned int card;
+    int card;
     fscanf(card_file, "%d", &card);
+
+    // TODO: CheckSession
 
     printf("PIN? ");
 
-    unsigned int pin;
-    if (scanf("%4u", &pin) != 1) {
+    int pin;
+    if (scanf("%4d ", &pin) != 1) {
         printf("Not authorized\n");
         return;
     }
 
-    packet_t p = {
-        .cmd = BeginSession,
-        .username = {0},
-        .card = card,
-        .pin = pin,
-        .nonce = 1
-    };
+    packet_t p = {.cmd = BeginSession,
+                  .username = {0},
+                  .card = card,
+                  .pin = pin,
+                  .nonce = atm->nonce};
 
     memcpy(p.username, username, 250);
 
-    printf("%d %s %4u %u %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
+    // printf("%d %s %4u %u %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
 
-    for (int i = 0; i < sizeof(p); i++)
-      printf("%02X ", ((char*) &p)[i]);
-    printf("\n");
+    // for (int i = 0; i < sizeof(p); i++)
+    //   printf("%02X ", ((char*) &p)[i]);
+    // printf("\n");
 
     char recvline[10000];
 
-    atm_send(atm, (char*) &p, sizeof(p));
+    atm_send(atm, (char *)&p, sizeof(p));
     int n = atm_recv(atm, recvline, 10000);
     recvline[n] = 0;
-    printf("$%s\n", recvline);
+
+    if (n == 0) {
+        printf("Authorized\n");
+        atm->username = malloc(strlen(username) + 1);
+        strcpy(atm->username, username);
+        atm->pin = pin;
+        atm->card = card;
+    } else {
+        printf("%s\n", recvline);
+    }
 
     return;
 }
@@ -168,6 +184,7 @@ void atm_process_command(ATM *atm, char *command) {
         printf("Invalid command\n");
     }
 
+    atm->nonce += 1;
+
     for (int i = 0; i < argc; i++) free(argv[i]);
-    free(argv);
 }

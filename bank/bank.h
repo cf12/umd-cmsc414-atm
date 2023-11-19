@@ -1,5 +1,5 @@
 /*
- * The Bank takes commands from stdin as well as from the ATM.  
+ * The Bank takes commands from stdin as well as from the ATM.
  *
  * Commands from stdin be handled by bank_process_local_command.
  *
@@ -16,17 +16,17 @@
 #define __BANK_H__
 
 #include <arpa/inet.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <sys/socket.h>
 
 #include "../ports.h"
 #include "../util/hash_table.h"
-#include "../util/rsa.h"
 #include "../util/packet.h"
+#include "../util/rsa.h"
+#include "../util/list.h"
 
-typedef struct _Bank
-{
+typedef struct _Bank {
     // Networking state
     int sockfd;
     struct sockaddr_in rtr_addr;
@@ -37,13 +37,16 @@ typedef struct _Bank
 
     // HashTable
     HashTable *pin_table;
-    HashTable *balance_table; 
-    HashTable *card_table; 
+    HashTable *balance_table;
+    HashTable *card_table;
+    HashTable *nonce_table;
 
-    EVP_PKEY* key;
+    List *users;
+
+    EVP_PKEY *key;
 } Bank;
 
-Bank* bank_create();
+Bank *bank_create();
 void bank_free(Bank *bank);
 ssize_t bank_send(Bank *bank, char *data, size_t data_len);
 ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len);
@@ -51,4 +54,3 @@ void bank_process_local_command(Bank *bank, char *command, size_t len);
 void bank_process_remote_command(Bank *bank, char *command, size_t len);
 
 #endif
-
