@@ -11,7 +11,7 @@
     }
 ;
 
-ssize_t rsa_encrypt(EVP_PKEY *key, unsigned char *data, size_t data_len) {
+ssize_t rsa_encrypt(EVP_PKEY *key, unsigned char *data, size_t data_len, unsigned char **out) {
     size_t out_len;
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(key, NULL);
 
@@ -19,15 +19,22 @@ ssize_t rsa_encrypt(EVP_PKEY *key, unsigned char *data, size_t data_len) {
     if (EVP_PKEY_encrypt_init(ctx) <= 0) HANDLE_ERROR;
     if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
         HANDLE_ERROR;
+
     if (EVP_PKEY_encrypt(ctx, NULL, &out_len, data, data_len) <= 0)
         HANDLE_ERROR;
-    if (EVP_PKEY_encrypt(ctx, data, &out_len, data, data_len) <= 0)
+
+    *out = OPENSSL_malloc(out_len);
+    if (!*out)
+        HANDLE_ERROR;
+
+    if (EVP_PKEY_encrypt(ctx, *out, &out_len, data, data_len) <= 0)
         HANDLE_ERROR;
 
     return out_len;
 }
 
-ssize_t rsa_decrypt(EVP_PKEY *key, unsigned char *data, size_t data_len) {
+ssize_t rsa_decrypt(EVP_PKEY *key, unsigned char *data, size_t data_len, unsigned char **out) {
+    
     size_t out_len;
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(key, NULL);
 

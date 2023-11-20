@@ -13,7 +13,7 @@
     }
 ;
 
-ssize_t rsa_encrypt(EVP_PKEY *key, unsigned char *data, size_t data_len);
+ssize_t rsa_encrypt(EVP_PKEY *key, unsigned char *data, size_t data_len, unsigned char **out);
 ssize_t rsa_decrypt(EVP_PKEY *key, unsigned char *data, size_t data_len);
 EVP_PKEY *rsa_readkey(const char *filename);
 

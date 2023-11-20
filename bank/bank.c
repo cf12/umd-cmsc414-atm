@@ -70,10 +70,11 @@ void bank_free(Bank *bank) {
 }
 
 ssize_t bank_send(Bank *bank, char *data, size_t data_len) {
-    ssize_t out_len = rsa_encrypt(bank->key, (unsigned char *)data, data_len);
+    unsigned char* out;
+    ssize_t out_len = rsa_encrypt(bank->key, (unsigned char *)data, data_len, &out);
 
     // Returns the number of bytes sent; negative on error
-    return sendto(bank->sockfd, data, out_len, 0,
+    return sendto(bank->sockfd, out, out_len, 0,
                   (struct sockaddr *)&bank->rtr_addr, sizeof(bank->rtr_addr));
 }
 

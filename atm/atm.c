@@ -54,10 +54,14 @@ void atm_free(ATM *atm) {
 
 ssize_t atm_send(ATM *atm, char *data, size_t data_len) {
     // TODO: len(data) < N, lol
-    ssize_t out_len = rsa_encrypt(atm->key, (unsigned char *)data, data_len);
+    unsigned char* out;
+    ssize_t out_len = rsa_encrypt(atm->key, (unsigned char *)data, data_len, &out);
+
+    // increment nonce
+    atm->nonce += 1;
 
     // Returns the number of bytes sent; negative on error
-    return sendto(atm->sockfd, data, out_len, 0,
+    return sendto(atm->sockfd, out, out_len, 0,
                   (struct sockaddr *)&atm->rtr_addr, sizeof(atm->rtr_addr));
 }
 
@@ -81,7 +85,6 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
 
     char *username = argv[1];
 
-    // TODO: CheckSession
     packet_t p1 = {.cmd = CheckSession,
                   .username = {0},
                   .card = 0,
@@ -93,8 +96,7 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     char recvline1[10000];
 
     atm_send(atm, (char *)&p1, sizeof(p1));
-    long n = atm_recv(atm, recvline1, 10000);
-    printf("%ld\n", n);
+    ssize_t n = atm_recv(atm, recvline1, 10000);
     recvline1[n] = 0;
 
     // CheckSession failed
@@ -241,7 +243,6 @@ void atm_process_command(ATM *atm, char *command) {
     else
         printf("Invalid command\n");
 
-    atm->nonce += 1;
 
     for (int i = 0; i < argc; i++) free(argv[i]);
 }
