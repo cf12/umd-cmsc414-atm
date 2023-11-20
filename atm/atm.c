@@ -81,21 +81,43 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
 
     char *username = argv[1];
 
-    // fucking shit boy math
-    char card_filename[255 + 1] = "";
-    strncpy(card_filename, username, 250);
-    strcat(card_filename, ".card");
+    // TODO: CheckSession
+    packet_t p1 = {.cmd = CheckSession,
+                  .username = {0},
+                  .card = 0,
+                  .pin = 0,
+                  .nonce = atm->nonce};
 
-    FILE *card_file = fopen(card_filename, "r");
-    if (!card_file) {
-        printf("Unable to access %s's card\n", username);
+    memcpy(p1.username, username, 250);
+
+    char recvline1[10000];
+
+    atm_send(atm, (char *)&p1, sizeof(p1));
+    long n = atm_recv(atm, recvline1, 10000);
+    printf("%ld\n", n);
+    recvline1[n] = 0;
+
+    // CheckSession failed
+    if (n != 0) {
+        printf("%s\n", recvline1);
         return;
     }
 
-    int card;
-    fscanf(card_file, "%d", &card);
+    // user exists, set up BeginSession
+    char card_filename[256] = "";
+    strncpy(card_filename, username, 250);
+    strcat(card_filename, ".card");
+    printf("%s\n", card_filename);
 
-    // TODO: CheckSession
+
+    int card = 0;
+
+    FILE *card_file = fopen(card_filename, "r");
+    if (card_file != NULL) {
+        // printf("Unable to access %s's card\n", username
+        fscanf(card_file, "%d", &card);
+    }
+
 
     printf("PIN? ");
 
@@ -108,13 +130,13 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
         return;
     }
 
-    packet_t p = {.cmd = BeginSession,
-                  .username = {0},
-                  .card = card,
-                  .pin = pin,
-                  .nonce = atm->nonce};
+    packet_t p2 = {.cmd = BeginSession,
+         .username = {0},
+         .card = card,
+         .pin = pin,
+         .nonce = atm->nonce};
 
-    memcpy(p.username, username, 250);
+    memcpy(p2.username, username, 250);
 
     // printf("%d %s %4u %u %d\n", p.cmd, p.username, p.pin, p.card, p.nonce);
 
@@ -122,11 +144,11 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     //   printf("%02X ", ((char*) &p)[i]);
     // printf("\n");
 
-    char recvline[10000];
+    char recvline2[10000];
 
-    atm_send(atm, (char *)&p, sizeof(p));
-    int n = atm_recv(atm, recvline, 10000);
-    recvline[n] = 0;
+    atm_send(atm, (char *)&p2, sizeof(p2));
+    n = atm_recv(atm, recvline2, 10000);
+    recvline2[n] = 0;
 
     if (n == 0) {
         printf("Authorized\n");
@@ -135,7 +157,7 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
         atm->pin = pin;
         atm->card = card;
     } else {
-        printf("%s\n", recvline);
+        printf("%s\n", recvline2);
     }
 
     return;

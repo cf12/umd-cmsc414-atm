@@ -226,7 +226,9 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
     printf("[packet]: %d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card,
            p->nonce);
-    printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
+	if (user_pin != NULL && user_card != NULL && user_balance != NULL) {
+		printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
+	}
 
     switch (p->cmd) {
         case CheckSession:
@@ -240,7 +242,6 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
             } else {
                 bank_send(bank, sendline, 0);
             }
-
             break;
         case BeginSession:
             if (p->pin != *user_pin || p->card != *user_card ||
