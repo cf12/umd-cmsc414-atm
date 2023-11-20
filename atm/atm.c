@@ -170,7 +170,7 @@ void process_withdraw_command(ATM *atm, size_t argc, char **argv) {
     int amt = 0;
 
     // TODO: check amt
-    if (argc != 2 || (sscanf(argv[2], "%d", &amt) != 1)) {
+    if (argc != 2 || (sscanf(argv[1], "%d", &amt) != 1)) {
         printf("Usage: withdraw <amt>\n");
         return;
     } else if (!atm->username) {
@@ -245,4 +245,5 @@ void atm_process_command(ATM *atm, char *command) {
 
 
     for (int i = 0; i < argc; i++) free(argv[i]);
+    free(argv);
 }
