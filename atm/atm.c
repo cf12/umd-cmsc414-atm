@@ -54,8 +54,9 @@ void atm_free(ATM *atm) {
 
 ssize_t atm_send(ATM *atm, char *data, size_t data_len) {
     // TODO: len(data) < N, lol
-    unsigned char* out;
-    ssize_t out_len = rsa_encrypt(atm->key, (unsigned char *)data, data_len, &out);
+    unsigned char *out;
+    ssize_t out_len =
+        rsa_encrypt(atm->key, (unsigned char *)data, data_len, &out);
 
     // increment nonce
     atm->nonce += 1;
@@ -86,10 +87,10 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     char *username = argv[1];
 
     packet_t p1 = {.cmd = CheckSession,
-                  .username = {0},
-                  .card = 0,
-                  .pin = 0,
-                  .nonce = atm->nonce};
+                   .username = {0},
+                   .card = 0,
+                   .pin = 0,
+                   .nonce = atm->nonce};
 
     memcpy(p1.username, username, 250);
 
@@ -111,7 +112,6 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     strcat(card_filename, ".card");
     printf("%s\n", card_filename);
 
-
     int card = 0;
 
     FILE *card_file = fopen(card_filename, "r");
@@ -119,7 +119,6 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
         // printf("Unable to access %s's card\n", username
         fscanf(card_file, "%d", &card);
     }
-
 
     printf("PIN? ");
 
@@ -133,10 +132,10 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     }
 
     packet_t p2 = {.cmd = BeginSession,
-         .username = {0},
-         .card = card,
-         .pin = pin,
-         .nonce = atm->nonce};
+                   .username = {0},
+                   .card = card,
+                   .pin = pin,
+                   .nonce = atm->nonce};
 
     memcpy(p2.username, username, 250);
 
@@ -169,8 +168,7 @@ void process_withdraw_command(ATM *atm, size_t argc, char **argv) {
     char recvline[10000];
     int amt = 0;
 
-    // TODO: check amt
-    if (argc != 2 || (sscanf(argv[1], "%d", &amt) != 1)) {
+    if (argc != 2 || (sscanf(argv[1], "%d", &amt) != 1) || amt < 0) {
         printf("Usage: withdraw <amt>\n");
         return;
     } else if (!atm->username) {
@@ -198,15 +196,23 @@ void process_balance_command(ATM *atm, size_t argc, char **argv) {
     if (argc != 1) {
         printf("Usage: balance\n");
         return;
+    } else if (!atm->username) {
+        printf("No user logged in\n");
+        return;
     }
 
-    // TODO: balance logic
+    packet_t p = {.cmd = Balance,
+                  .username = {0},
+                  .card = atm->card,
+                  .pin = atm->pin,
+                  .nonce = atm->nonce,
+                  .amt = 0};
+    memcpy(p.username, atm->username, 250);
 
-    // strcpy(sendline, "0 brian 0000 card1 balance");
-    // atm_send(atm, sendline, strlen(sendline));
+    atm_send(atm, (char *)&p, sizeof(p));
     int n = atm_recv(atm, recvline, 10000);
     recvline[n] = 0;
-    printf("$%s\n", recvline);
+    printf("%s\n", recvline);
 }
 
 void atm_process_command(ATM *atm, char *command) {
@@ -221,6 +227,8 @@ void atm_process_command(ATM *atm, char *command) {
     size_t argc = 0;
     char **argv = malloc(sizeof(char *));
     char *splitter;
+
+    if (strlen(command) <= 1) return;
 
     // TODO: null byte ovbeflow?
     command[strlen(command) - 1] = '\0';
@@ -242,7 +250,6 @@ void atm_process_command(ATM *atm, char *command) {
         process_balance_command(atm, argc, argv);
     else
         printf("Invalid command\n");
-
 
     for (int i = 0; i < argc; i++) free(argv[i]);
     free(argv);

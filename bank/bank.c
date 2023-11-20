@@ -258,18 +258,28 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
             if (p->pin != *user_pin || p->card != *user_card ||
                 p->nonce != bank->nonce) {
                 strcpy(sendline, "Not authorized");
-                bank_send(bank, sendline, strlen(sendline));
             } else if (user_balance == NULL) {
                 strcpy(sendline, "No user logged in");
-                bank_send(bank, sendline, strlen(sendline));
-            } else if (*user_balance < p->amt) {
+            } else if (p->amt < 0 || *user_balance < p->amt) {
                 strcpy(sendline, "Insufficient funds");
-                bank_send(bank, sendline, strlen(sendline));
             } else {
                 *user_balance -= p->amt;
                 sprintf(sendline, "$%d dispensed", p->amt);
-                bank_send(bank, sendline, strlen(sendline));
             }
+
+            bank_send(bank, sendline, strlen(sendline));
+            break;
+        case Balance:
+            if (p->pin != *user_pin || p->card != *user_card ||
+                p->nonce != bank->nonce) {
+                strcpy(sendline, "Not authorized");
+            } else if (user_balance == NULL) {
+                strcpy(sendline, "No user logged in");
+            } else {
+                sprintf(sendline, "$%d", *user_balance);
+            }
+
+            bank_send(bank, sendline, strlen(sendline));
             break;
         default:
             break;
