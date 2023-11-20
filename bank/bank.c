@@ -70,8 +70,9 @@ void bank_free(Bank *bank) {
 }
 
 ssize_t bank_send(Bank *bank, char *data, size_t data_len) {
-    unsigned char* out;
-    ssize_t out_len = rsa_encrypt(bank->key, (unsigned char *)data, data_len, &out);
+    unsigned char *out;
+    ssize_t out_len =
+        rsa_encrypt(bank->key, (unsigned char *)data, data_len, &out);
 
     // Returns the number of bytes sent; negative on error
     return sendto(bank->sockfd, out, out_len, 0,
@@ -227,30 +228,27 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
     printf("[packet]: %d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card,
            p->nonce);
-	if (user_pin != NULL && user_card != NULL && user_balance != NULL) {
-		printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
-	}
+    if (user_pin != NULL && user_card != NULL && user_balance != NULL) {
+        printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
+    }
 
     switch (p->cmd) {
         case CheckSession:
             // user doesn't exist
             if (hash_table_find(bt, p->username) == NULL) {
                 strcpy(sendline, "No such user");
-                bank_send(bank, sendline, strlen(sendline));
             } else if (list_find(users, p->username) != NULL) {
                 strcpy(sendline, "A user is already logged in");
-                bank_send(bank, sendline, strlen(sendline));
             } else {
-                bank_send(bank, sendline, 0);
+                strcpy(sendline, "");
             }
             break;
         case BeginSession:
             if (p->pin != *user_pin || p->card != *user_card ||
                 p->nonce != bank->nonce) {
                 strcpy(sendline, "Not authorized");
-                bank_send(bank, sendline, strlen(sendline));
             } else {
-                bank_send(bank, sendline, 0);
+                strcpy(sendline, "");
             }
 
             break;
@@ -267,7 +265,6 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
                 sprintf(sendline, "$%d dispensed", p->amt);
             }
 
-            bank_send(bank, sendline, strlen(sendline));
             break;
         case Balance:
             if (p->pin != *user_pin || p->card != *user_card ||
@@ -279,11 +276,25 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
                 sprintf(sendline, "$%d", *user_balance);
             }
 
-            bank_send(bank, sendline, strlen(sendline));
+            break;
+        case EndSession:
+            if (p->pin != *user_pin || p->card != *user_card ||
+                p->nonce != bank->nonce) {
+                strcpy(sendline, "Not authorized");
+            } else if (user_balance == NULL) {
+                strcpy(sendline, "No user logged in");
+            } else {
+                list_del(users, p->username);
+                strcpy(sendline, "");
+            }
+
             break;
         default:
             break;
     }
+
+    // respond to atm
+    bank_send(bank, sendline, strlen(sendline));
 
     // increment nonce
     bank->nonce += 1;

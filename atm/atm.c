@@ -215,6 +215,38 @@ void process_balance_command(ATM *atm, size_t argc, char **argv) {
     printf("%s\n", recvline);
 }
 
+void process_end_session_command(ATM *atm, size_t argc, char **argv) {
+    char recvline[10000];
+
+    if (!atm->username) {
+        printf("No user logged in\n");
+        return;
+    }
+
+    packet_t p = {.cmd = EndSession,
+                  .username = {0},
+                  .card = atm->card,
+                  .pin = atm->pin,
+                  .nonce = atm->nonce,
+                  .amt = 0};
+    memcpy(p.username, atm->username, 250);
+
+    atm_send(atm, (char *)&p, sizeof(p));
+    int n = atm_recv(atm, recvline, 10000);
+    recvline[n] = 0;
+
+    if (n == 0) {
+        // success
+        atm->username = NULL;
+        atm->card = 0;
+        atm->pin = 0;
+
+        printf("User logged out\n");
+    } else {
+        printf("%s\n", recvline);
+    }
+}
+
 void atm_process_command(ATM *atm, char *command) {
     // TODO: Implement the ATM's side of the ATM-bank protocol
 
@@ -248,6 +280,8 @@ void atm_process_command(ATM *atm, char *command) {
         process_withdraw_command(atm, argc, argv);
     else if (strcmp(cmd, "balance") == 0)
         process_balance_command(atm, argc, argv);
+    else if (strcmp(cmd, "end-session") == 0)
+        process_end_session_command(atm, argc, argv);
     else
         printf("Invalid command\n");
 
