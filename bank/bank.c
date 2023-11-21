@@ -91,27 +91,28 @@ ssize_t bank_recv(Bank *bank, char *data, size_t max_data_len) {
 void process_create_user_command(Bank *bank, char *command) {
     HashTable *bt = bank->balance_table, *pt = bank->pin_table,
               *ct = bank->card_table;
-    char *user_name = calloc(1, 251 * sizeof(*user_name));
+    char *username = calloc(1, 251 * sizeof(*username));
     int *pin = calloc(1, sizeof(*pin));
     int *balance = calloc(1, sizeof(*balance));
     int *card = calloc(1, sizeof(*card));
     int num_groups = 3;
     int num_matched =
-        sscanf(command, "create-user %250s %4d %d", user_name, pin, balance);
+        sscanf(command, "create-user %250s %4d %d", username, pin, balance);
 
     // check input valid
     if (num_matched != num_groups || *balance < 0) {
-        free(user_name);
+        free(username);
         free(pin);
         free(balance);
+        free(card);
         printf("Usage:  create-user <user-name> <pin> <balance>\n");
         return;
     }
 
-    if (hash_table_find(bt, user_name) == NULL) {
+    if (hash_table_find(bt, username) == NULL) {
         FILE *fp;
         char filename[256] = "";
-        strcat(filename, user_name);
+        strcat(filename, username);
         strcat(filename, ".card");
 
         fp = fopen(filename, "w");
@@ -122,51 +123,43 @@ void process_create_user_command(Bank *bank, char *command) {
             *card = rand();
             fprintf(fp, "%d", *card);
 
-            printf("Created user %s\n", user_name);
+            printf("Created user %s\n", username);
             fclose(fp);
 
-            hash_table_add(pt, user_name, pin);
-            hash_table_add(bt, user_name, balance);
-            hash_table_add(ct, user_name, card);
+            hash_table_add(pt, username, pin);
+            hash_table_add(bt, username, balance);
+            hash_table_add(ct, username, card);
             return;
         }
 
-        printf("Error creating card file for user %s\n", user_name);
+        printf("Error creating card file for user %s\n", username);
     } else {
-        printf("Error:  user %s already exists\n", user_name);
+        printf("Error:  user %s already exists\n", username);
     }
 }
 
 void process_deposit_command(Bank *bank, char *command) {
     HashTable *bt = bank->balance_table;
     char *user_name = calloc(1, 251 * sizeof(*user_name));
-    int *amt = calloc(1, sizeof(*amt));
+    int amt = 0;
     int num_groups = 2;
-    int num_matched = sscanf(command, "deposit %250s %d", user_name, amt);
+    int num_matched = sscanf(command, "deposit %250s %d", user_name, &amt);
 
     // check input valid
-    if (num_matched != num_groups || *amt < 0) {
+    if (num_matched != num_groups || amt < 0) {
         free(user_name);
-        free(amt);
         printf("Usage:  deposit <user-name> <amt>\n");
         return;
     }
 
     // if user_name exists
     if (hash_table_find(bt, user_name) != NULL) {
-        int *new_balance = malloc(sizeof(*new_balance));
         int *balance = hash_table_find(bt, user_name);
-        printf("initial: %d, deposit: %d\n", *balance, *amt);
 
-        *new_balance = *balance + *amt;
-        if (new_balance > 0) {
-            printf("initial: %d, amt: %d, updated: %d\n", *balance, *amt,
-                   *new_balance);
+        if (*balance + amt > 0) {
+            *balance += amt;
 
-            hash_table_del(bt, user_name);
-            hash_table_add(bt, user_name, new_balance);
-
-            printf("$%d added to %s's account\n", *amt, user_name);
+            printf("$%d added to %s's account\n", amt, user_name);
             return;
         }
 

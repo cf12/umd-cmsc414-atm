@@ -46,8 +46,7 @@ void atm_free(ATM *atm) {
         EVP_PKEY_free(atm->key);
         EVP_cleanup();
 
-        if (atm->username) free(atm->username);
-
+        free(atm->username);
         free(atm);
     }
 }
@@ -249,21 +248,23 @@ void process_end_session_command(ATM *atm, size_t argc, char **argv) {
 
 void atm_process_command(ATM *atm, char *command) {
     size_t argc = 0;
-    char **argv = malloc(sizeof(char *));
-    char *splitter;
+    char **argv;
+    char *st;
 
     if (strlen(command) <= 1) return;
 
     // TODO: null byte ovbeflow?
     command[strlen(command) - 1] = '\0';
 
-    splitter = strtok(command, " ");
-    while (splitter != NULL) {
-        char *tmp = malloc(strlen(splitter) + 1);
-        strcpy(tmp, splitter);
-        argv[argc++] = tmp;
-        splitter = strtok(NULL, " ");
-    }
+    // tokenize
+    argv = malloc(sizeof(char *));
+    st = strtok(command, " ");
+
+    do {
+        argv[argc++] = strdup(st);
+        argv = realloc(argv, (argc + 1) * sizeof(char *));
+    } while ((st = strtok(NULL, " ")) != NULL);
+    argv[argc] = NULL;
 
     char *cmd = argv[0];
     if (strcmp(cmd, "begin-session") == 0)
