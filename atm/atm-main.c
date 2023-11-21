@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     char user_input[10000];
 
     ATM* atm = atm_create();
-    EVP_PKEY* key = rsa_readkey(strcat(argv[1], ".bank"));
+    EVP_PKEY* key = rsa_readkey(argv[1]);
     if (!key) {
         perror("Error opening ATM initialization file");
         return 64;

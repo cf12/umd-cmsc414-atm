@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     char recvline[10000];
 
     Bank* bank = bank_create();
-    EVP_PKEY* key = rsa_readkey(strcat(argv[1], ".bank"));
+    EVP_PKEY* key = rsa_readkey(argv[1]);
     if (!key) {
         perror("Error opening bank initialization file");
         return 64;

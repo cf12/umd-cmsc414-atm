@@ -248,14 +248,6 @@ void process_end_session_command(ATM *atm, size_t argc, char **argv) {
 }
 
 void atm_process_command(ATM *atm, char *command) {
-    // TODO: Implement the ATM's side of the ATM-bank protocol
-
-    /*
-     * The following is a toy example that simply sends the
-     * user's command to the bank, receives a message from the
-     * bank, and then prints it to stdout.
-     */
-
     size_t argc = 0;
     char **argv = malloc(sizeof(char *));
     char *splitter;

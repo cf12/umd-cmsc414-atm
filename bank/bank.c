@@ -210,27 +210,22 @@ void bank_process_local_command(Bank *bank, char *command, size_t len) {
 }
 
 void bank_process_remote_command(Bank *bank, char *command, size_t len) {
-    // TODO: Implement the bank side of the ATM-bank protocol
     HashTable *bt = bank->balance_table, *pt = bank->pin_table,
               *ct = bank->card_table;
     List *users = bank->users;
+    int *user_pin, *user_card, *user_balance;
     char sendline[10000];
+    packet_t *p;
 
-    // for (int i = 0; i < len; i++) printf("%02X ", command[i]);
-    // printf("\n");
-
-    packet_t *p = (packet_t *)command;
-
-    // TODO: free these sometime somewhere
-    int *user_pin = hash_table_find(pt, p->username);
-    int *user_card = hash_table_find(ct, p->username);
-    int *user_balance = hash_table_find(bt, p->username);
+    p = (packet_t *)command;
+    user_pin = hash_table_find(pt, p->username);
+    user_card = hash_table_find(ct, p->username);
+    user_balance = hash_table_find(bt, p->username);
 
     printf("[packet]: %d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card,
            p->nonce);
-    if (user_pin != NULL && user_card != NULL && user_balance != NULL) {
+    if (user_pin != NULL && user_card != NULL && user_balance != NULL)
         printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
-    }
 
     switch (p->cmd) {
         case CheckSession:
@@ -298,48 +293,4 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
 
     // increment nonce
     bank->nonce += 1;
-
-    // // TODO: null byte ovbeflow?
-    // command[len] = 0;
-
-    // splitter = strtok(command, " ");
-    // while (splitter != NULL) {
-    //     char *tmp = malloc(strlen(splitter) + 1);
-    //     strcpy(tmp, splitter);
-    //     argv[argc++] = tmp;
-    //     splitter = strtok(NULL, " ");
-    // }
-
-    // const int bound = 4;
-
-    // unsigned int nonce = atoi(argv[0]);
-    // char *user_name = argv[1];
-    // char *pin = argv[2];
-    // char *card = argv[3];
-    // char *cmd = argv[bound];
-
-    // for (int i = 0; i < argc; i++)
-    //   printf("[%d]: %s\n", i, argv[i]);
-
-    // char sendline[10000];
-    // if (strcmp(cmd, "login") == 0) {
-    //   if (hash_table_find(ht, user_name) != NULL) {
-
-    //   } else {
-    //     sprintf(sendline, "No such user", command);
-    //   }
-    // } else if (strcmp(cmd, "balance") == 0) {
-    //   int *balance;
-    //   if ((balance = hash_table_find(ht, user_name)) != NULL) {
-    //     sprintf(sendline, "%d", *balance);
-    //   }
-    // } else {
-    //     printf("comm error\n");
-    // }
-
-    // bank_send(bank, sendline, strlen(sendline));
-
-    // for (int i = 0; i < argc; i++)
-    //     free(argv[i]);
-    // // free(argv);
 }

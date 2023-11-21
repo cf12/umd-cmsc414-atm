@@ -110,7 +110,7 @@ def test_create_user(init_path):
         c.expect('Usage:\s+deposit <user-name> <amt>')
         c.expect('BANK:\s*')
 
-    init = spawn('{path1}/bin/init {path2}'.format(path1=init_path,path2=file_path))
+    init = spawn('{path1}/bin/init {path2}.atm'.format(path1=init_path,path2=file_path))
     init.expect('Successfully initialized bank state')
 
     router = spawn('{path1}/bin/router'.format(path1=init_path))
@@ -154,4 +154,4 @@ def test_create_user(init_path):
     cleanup()
        
 test_init(proj_path)
-#test_create_user(proj_path)
+test_create_user(proj_path)

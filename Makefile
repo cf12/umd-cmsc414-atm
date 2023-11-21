@@ -4,7 +4,7 @@ DEPS = util/hash_table.c util/list.c util/rsa.c util/packet.c
 ifeq ($(CC),clang)
 	STACK_FLAGS = -fno-stack-protector -Wl,-allow_stack_execute
 else
-	STACK_FLAGS = -fno-stack-protector -z execstack -g
+	STACK_FLAGS = -fno-stack-protector -g -O0
 endif
 
 CFLAGS = ${STACK_FLAGS} \
@@ -13,10 +13,13 @@ CFLAGS = ${STACK_FLAGS} \
 	-lcrypto -lssl -Wall -Iutil -Iatm -Ibank -Irouter -Irsa -I \
 	-ftrapv.
 
-all: bin bin/atm bin/bank bin/router
+all: bin bin/init bin/atm bin/bank bin/router
 
 bin:
 	mkdir -p bin
+
+bin/init:
+	cp init bin/
 
 bin/atm : atm/atm-main.c atm/atm.c ${DEPS}
 	${CC} atm/atm.c atm/atm-main.c ${DEPS} -o bin/atm ${CFLAGS}
