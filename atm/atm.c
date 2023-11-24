@@ -109,7 +109,7 @@ void process_begin_session_command(ATM *atm, size_t argc, char **argv) {
     char card_filename[256] = "";
     strncpy(card_filename, username, 250);
     strcat(card_filename, ".card");
-    printf("%s\n", card_filename);
+    // printf("%s\n", card_filename);
 
     int card = 0;
 

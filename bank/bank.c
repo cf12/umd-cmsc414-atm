@@ -249,10 +249,10 @@ void bank_process_remote_command(Bank *bank, char *command, size_t len) {
     user_card = hash_table_find(ct, p->username);
     user_balance = hash_table_find(bt, p->username);
 
-    printf("[packet]: %d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card,
-           p->nonce);
-    if (user_pin != NULL && user_card != NULL && user_balance != NULL)
-        printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
+    // printf("[packet]: %d %s %4u %u %d\n", p->cmd, p->username, p->pin, p->card,
+    //        p->nonce);
+    // if (user_pin != NULL && user_card != NULL && user_balance != NULL)
+    //     printf("[user]: %d %d $%d\n", *user_pin, *user_card, *user_balance);
 
     switch (p->cmd) {
         case CheckSession:
