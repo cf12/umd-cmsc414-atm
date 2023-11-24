@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <regex.h>
+
+regex_t create_user_regex, deposit_regex, balance_user_regex;
 
 int starts_with(const char *a, const char *b) {
     return !strncmp(a, b, strlen(b));
@@ -34,21 +37,29 @@ Bank *bank_create() {
          sizeof(bank->bank_addr));
 
     // Set up the protocol state
-    // TODO set up more, as needed
 
     // Set up Hashtable
     HashTable *pt = hash_table_create(10);
     HashTable *bt = hash_table_create(10);
     HashTable *ct = hash_table_create(10);
 
-    bank->nonce = 0;
-
     bank->pin_table = pt;
     bank->balance_table = bt;
     bank->card_table = ct;
 
+    // Set up user list
     List *cu = list_create();
     bank->users = cu;
+
+    // Set up none
+    bank->nonce = 0;
+    
+    // Set up regex
+    regcomp(&create_user_regex,
+                   "^create-user ([a-zA-Z]+) ([0-9][0-9][0-9][0-9]) ([0-9]+)\n$",
+                   REG_EXTENDED);
+    regcomp(&deposit_regex, "^deposit ([a-zA-Z]+) ([0-9]+)\n$", REG_EXTENDED);
+    regcomp(&balance_user_regex, "^balance ([a-zA-Z]+)\n$", REG_EXTENDED);
 
     return bank;
 }
@@ -191,12 +202,35 @@ void process_balance_command(Bank *bank, char *command) {
 }
 
 void bank_process_local_command(Bank *bank, char *command, size_t len) {
+    int matched; 
+
     if (starts_with(command, "create-user")) {
-        process_create_user_command(bank, command);
+        matched =
+            !regexec(&create_user_regex, command, 0, NULL, 0);
+
+        if (matched) {
+            process_create_user_command(bank, command);
+        } else {
+            printf("Usage:  create-user <user-name> <pin> <balance>\n");
+        }
     } else if (starts_with(command, "deposit")) {
-        process_deposit_command(bank, command);
+        matched =
+            !regexec(&deposit_regex, command, 0, NULL, 0);
+
+        if (matched) {
+            process_deposit_command(bank, command);
+        } else {
+            printf("Usage:  deposit <user-name> <amt>\n");
+        }
     } else if (starts_with(command, "balance")) {
-        process_balance_command(bank, command);
+        matched =
+            !regexec(&balance_user_regex, command, 0, NULL, 0);
+
+        if (matched) {
+            process_balance_command(bank, command);
+        } else {
+            printf("Usage:  balance <user-name>\n");
+        }
     } else {
         printf("Invalid command\n");
     }
